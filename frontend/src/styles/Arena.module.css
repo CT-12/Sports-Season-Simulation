@@ -1,0 +1,29 @@
+/* arena */
+.arena{
+    display:flex;
+    justify-content:space-around;
+    gap:20px;
+    padding:24px;
+    flex-wrap:wrap;
+    max-width:1200px;
+    margin:14px auto 0;
+}
+.team-panel{
+    width:48%;
+    min-width:320px;
+    background:var(--card-bg);
+    border-radius:14px;
+    padding:16px;
+    box-shadow:var(--shadow);
+    border:1px solid rgba(15,23,42,0.03);
+}
+
+.panel-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-bottom:12px;
+}
+.panel-header h2{margin:0;color:var(--accent-2)}
+.panel-header .sub{font-size:0.9rem;color:var(--muted);margin-top:4px}

@@ -1,17 +1,38 @@
-import { useState, useEffect } from "react";
-import appStyle from "./styles/app.module.css";
-import getTeams from "./api/getTeams.ts";
+import { useState, useEffect } from "react"
+// Style
+import appStyle from "./styles/app.module.css"
+import ArenaStyle from "./styles/Arena.module.css"
 // Components
-import TeamSelect from "./components/TeamSelect";
+import TeamSelect from "./components/TeamSelect"
+import TeamPanel from "./components/TeamPanel.tsx"
+// Utils
+import getTeams from "./api/getTeams.ts"
+import getRoster from "./api/GetRoster.ts";
 
 function App() {
-	const [teams, setTeams] = useState<Team[]>([]);
+	const [teams, setTeams] = useState<Team[]>([])
 
 	useEffect(() => {
 		getTeams().then((fetchedTeams) => {
-			setTeams(fetchedTeams);
-		});
-	}, []);
+			setTeams(fetchedTeams)
+		})
+	}, [])
+
+	const [rosterA, setRosterA] = useState<Player[]>([]);
+	const [rosterB, setRosterB] = useState<Player[]>([]);
+
+	const handleTeamChange = async (side: "A" | "B", teamId: string) => {
+		if (!teamId) {
+			side === "A" ? setRosterA([]) : setRosterB([]);
+			return;
+		}
+		const roster = await getRoster(teamId);
+		if (side === "A") {
+			setRosterA(roster);
+		} else {
+			setRosterB(roster);
+		}
+	};
 
 	return (
 		<>
@@ -29,68 +50,23 @@ function App() {
 						label="隊伍 A"
 						id="teamASelect"
 						teams={teams}
+						onTeamSelect={(teamId) => handleTeamChange("A", teamId)}
 					/>
 					<div className={appStyle.vs}>VS</div>
 					<TeamSelect
 						label="隊伍 B"
 						id="teamBSelect"
 						teams={teams}
+						onTeamSelect={(teamId) => handleTeamChange("B", teamId)}
 					/>
 					<button id="resetBtn" title="還原原始名單">
 						重置陣容
 					</button>
 				</section>
 
-				<section className={appStyle.arena}>
-					<div className={appStyle.teamPanel} id="teamA">
-						<div className={appStyle.panelHeader}>
-							<div>
-								<h2 id="teamAName">隊伍 A</h2>
-								<div className={appStyle.sub} id="teamAInfo">
-									球員數：0 · Rating：0
-								</div>
-							</div>
-							<div className={appStyle.winBlock}>
-								<div className={appStyle.winLabel}>勝率</div>
-								<div className={appStyle.bar} id="winBarA">
-									<div className={appStyle.fill} style={{ width: "0%" }}></div>
-								</div>
-								<div className={appStyle.winPercent} id="winPctA">
-									--
-								</div>
-							</div>
-						</div>
-						<div
-							className={appStyle.playerList}
-							id="rosterA"
-							data-side="A"
-						></div>
-					</div>
-
-					<div className={appStyle.teamPanel} id="teamB">
-						<div className={appStyle.panelHeader}>
-							<div>
-								<h2 id="teamBName">隊伍 B</h2>
-								<div className={appStyle.sub} id="teamBInfo">
-									球員數：0 · Rating：0
-								</div>
-							</div>
-							<div className={appStyle.winBlock}>
-								<div className={appStyle.winLabel}>勝率</div>
-								<div className={appStyle.bar} id="winBarB">
-									<div className={appStyle.fill} style={{ width: "0%" }}></div>
-								</div>
-								<div className={appStyle.winPercent} id="winPctB">
-									--
-								</div>
-							</div>
-						</div>
-						<div
-							className={appStyle.playerList}
-							id="rosterB"
-							data-side="B"
-						></div>
-					</div>
+				<section className={ArenaStyle.arena}>
+					<TeamPanel teamName="隊伍 A" players={rosterA} />
+					<TeamPanel teamName="隊伍 B" players={rosterB} />
 				</section>
 
 				<section className={appStyle.notes}>

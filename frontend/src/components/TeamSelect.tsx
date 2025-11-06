@@ -1,12 +1,6 @@
 import appStyle from "../styles/app.module.css";
 
-interface TeamSelectProps {
-  label: string;             // 標籤文字
-  id: string;                // select 的 id
-  teams: Team[];             // 隊伍陣列
-}
-
-function TeamSelect({ label, id, teams }: TeamSelectProps) {
+function TeamSelect({ label, id, teams, onTeamSelect }: TeamSelectProps) {
     
     const teamOptions = teams.length > 0 ? teams.map(team => {
 		return (
@@ -15,11 +9,16 @@ function TeamSelect({ label, id, teams }: TeamSelectProps) {
 	}) : (
 		<option value="">載入中…</option>
 	);
+
+    const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        onTeamSelect(event.target.value);
+    };
     
     return (
         <div className={appStyle['select-wrap']}>
             <label>{label}</label>
-            <select id={id}>
+            <select id={id} onChange={handleChange}>
+                <option value="">-- 請選擇 --</option>
                 {teamOptions}
             </select>
         </div>
