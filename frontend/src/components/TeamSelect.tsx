@@ -1,29 +1,72 @@
-import appStyle from "../styles/app.module.css";
+// Style
+import TeamSelectStyle from "../styles/TeamSelect.module.css";
+// Hooks
+import { useTeamSelect } from "../hooks/useTeamSelect.ts";
 
-function TeamSelect({ label, id, teams, onTeamSelect }: TeamSelectProps) {
-    
-    const teamOptions = teams.length > 0 ? teams.map(team => {
-		return (
-			<option key={team.id} data-team-id={team.id} value={team.name}>{team.name}</option>
-		);
-	}) : (
-		<option value="">載入中…</option>
-	);
+function TeamSelect({ teams, onTeamsSelected, onResetRosters }: TeamSelectProps) {
 
-    const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const selectedOption = event.target.options[event.target.selectedIndex];
-        onTeamSelect(Number(selectedOption.dataset.teamId), selectedOption.value);
-    };
-    
+    const {
+        selectedTeams,
+        modalOpen,
+        handleTeamSelectClick,
+        openModal,
+        closeModal,
+        confirmSelection
+    } = useTeamSelect({ onTeamsSelected, teams });
+
     return (
-        <div className={appStyle['select-wrap']}>
-            <label>{label}</label>
-            <select id={id} onChange={handleChange}>
-                <option value="">-- 請選擇 --</option>
-                {teamOptions}
-            </select>
+        <>
+        <div id="btnContainer" className={TeamSelectStyle["button-container"]}>
+            <button 
+                id="openModalBtn" 
+                className={TeamSelectStyle["trigger-btn"]}
+                onClick={openModal}
+            >
+                選擇隊伍
+            </button>
+
+            <button 
+                id="resetBtn" 
+                className={TeamSelectStyle["trigger-btn"]}
+                onClick={onResetRosters}
+            >
+                重置陣容
+            </button>
         </div>
-    );
+
+        <div id="teamModal" className={`${TeamSelectStyle.modal} ${modalOpen ? TeamSelectStyle['modal-active'] : ''}`}>
+            <div className={TeamSelectStyle["modal-content"]}>
+                <span id="closeModalBtn" className={TeamSelectStyle["close-btn"]} onClick={closeModal}>&times;</span>
+                <h2>請選擇兩個隊伍</h2>
+                <p id="selectionHint">已選擇: {selectedTeams.length} / 2</p>
+
+                <div id="teamListContainer" className={TeamSelectStyle["team-list"]}>
+                    {teams.map((team) => (
+                        <div 
+                            key={team.id} 
+                            className={`${TeamSelectStyle["team-item"]} ${selectedTeams.includes(team.id) ? TeamSelectStyle['selected'] : ''}`} 
+                            data-team-id={team.id}
+                            onClick={() => handleTeamSelectClick(team.id)}
+                        >
+                            <img src={`https://www.mlbstatic.com/team-logos/team-cap-on-light/${team.id}.svg`} alt={team.name} />
+                            <span>{team.name}</span>
+                        </div>
+                    ))}
+                </div>
+
+                <div className={TeamSelectStyle["modal-footer"]}>
+                    <button 
+                        id="confirmSelectionBtn" 
+                        className={TeamSelectStyle["confirm-btn"]} disabled={selectedTeams.length !== 2}
+                        onClick={confirmSelection}
+                    >
+                        確定
+                    </button>
+                </div>
+            </div>
+        </div>
+        </>
+    )
 }
 
 export default TeamSelect;
