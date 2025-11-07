@@ -1,0 +1,44 @@
+:root{
+    --accent:#0d47a1;
+    --accent-2:#1976d2;
+    --muted:#6b7280;
+    --card-bg: #ffffff;
+    --glass: rgba(255,255,255,0.7);
+    --success: #2e7d32;
+    --danger: #c62828;
+    --shadow: 0 6px 20px rgba(16,24,40,0.06);
+}
+
+*{
+    box-sizing:border-box
+}
+
+html,body{
+    height:100%
+}
+
+body{
+    margin:0;
+    font-family: "Segoe UI", Roboto, "Noto Sans TC", "PingFang TC", system-ui, -apple-system, sans-serif;
+    background: linear-gradient(180deg,#e8f3ff 0%, #ffffff 60%);
+    color:#111827;
+    -webkit-font-smoothing:antialiased;
+}
+
+header{
+    text-align:center;
+    padding:20px 12px;
+    border-bottom: 1px solid rgba(15,23,42,0.05);
+}
+
+h1{
+    margin:0;
+    font-size:1.6rem;
+    color:var(--accent)
+}
+
+.subtitle{
+    margin:6px 0 0;
+    color:var(--muted);
+    font-size:0.95rem
+}
