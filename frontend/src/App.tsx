@@ -1,13 +1,12 @@
 // Style
 import appStyle from "./styles/app.module.css"
-import ArenaStyle from "./styles/Arena.module.css"
 // Components
 import TeamSelect from "./components/TeamSelect"
 import Arena from "./components/Arena.tsx"
 // Hooks
 import {useTeamManager} from "./hooks/useTeamManager.ts"
 
-import {computeTeamRating, computeWinProbability} from "./utils/ComputeTeamStat.ts"
+import {computeWinProbability} from "./utils/ComputeTeamStat.ts"
 
 function App() {
 
@@ -19,6 +18,7 @@ function App() {
         rosterB,
         handleTeamChange,
 		movePlayer,
+		resetRosters,
 	} = useTeamManager();
 
 
@@ -49,7 +49,7 @@ function App() {
 						teams={teams}
 						onTeamSelect={(teamId: number, teamName: string) => handleTeamChange("B", teamId, teamName)}
 					/>
-					<button id="resetBtn" title="還原原始名單">
+					<button id="resetBtn" title="還原原始名單" onClick={resetRosters}>
 						重置陣容
 					</button>
 				</section>

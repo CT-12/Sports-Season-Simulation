@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 // Style
 import appStyle from "../styles/app.module.css";
 import PlayerCardStyle from "../styles/PlayerCard.module.css";
