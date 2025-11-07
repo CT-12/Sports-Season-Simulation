@@ -4,14 +4,15 @@ function TeamSelect({ label, id, teams, onTeamSelect }: TeamSelectProps) {
     
     const teamOptions = teams.length > 0 ? teams.map(team => {
 		return (
-			<option key={team.id} value={team.id}>{team.name}</option>
+			<option key={team.id} data-team-id={team.id} value={team.name}>{team.name}</option>
 		);
 	}) : (
 		<option value="">載入中…</option>
 	);
 
     const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        onTeamSelect(event.target.value);
+        const selectedOption = event.target.options[event.target.selectedIndex];
+        onTeamSelect(Number(selectedOption.dataset.teamId), selectedOption.value);
     };
     
     return (

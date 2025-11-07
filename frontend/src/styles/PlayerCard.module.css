@@ -40,4 +40,7 @@
 }
 
 /* dragging state */
-.player-card.dragging{opacity:0.55; transform:scale(0.98)}
+.player-card:global(.dragging){
+    opacity:0.55;
+    transform:scale(0.98);
+}

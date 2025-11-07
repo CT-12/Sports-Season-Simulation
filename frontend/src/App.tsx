@@ -1,38 +1,28 @@
-import { useState, useEffect } from "react"
 // Style
 import appStyle from "./styles/app.module.css"
 import ArenaStyle from "./styles/Arena.module.css"
 // Components
 import TeamSelect from "./components/TeamSelect"
-import TeamPanel from "./components/TeamPanel.tsx"
-// Utils
-import getTeams from "./api/getTeams.ts"
-import getRoster from "./api/GetRoster.ts";
+import Arena from "./components/Arena.tsx"
+// Hooks
+import {useTeamManager} from "./hooks/useTeamManager.ts"
+
+import {computeTeamRating, computeWinProbability} from "./utils/ComputeTeamStat.ts"
 
 function App() {
-	const [teams, setTeams] = useState<Team[]>([])
 
-	useEffect(() => {
-		getTeams().then((fetchedTeams) => {
-			setTeams(fetchedTeams)
-		})
-	}, [])
+	const {
+		teams,
+        teamA,
+        teamB,
+        rosterA,
+        rosterB,
+        handleTeamChange,
+		movePlayer,
+	} = useTeamManager();
 
-	const [rosterA, setRosterA] = useState<Player[]>([]);
-	const [rosterB, setRosterB] = useState<Player[]>([]);
 
-	const handleTeamChange = async (side: "A" | "B", teamId: string) => {
-		if (!teamId) {
-			side === "A" ? setRosterA([]) : setRosterB([]);
-			return;
-		}
-		const roster = await getRoster(teamId);
-		if (side === "A") {
-			setRosterA(roster);
-		} else {
-			setRosterB(roster);
-		}
-	};
+	const { teamAWinProb, teamBWinProb } = computeWinProbability(rosterA, rosterB);
 
 	return (
 		<>
@@ -50,24 +40,29 @@ function App() {
 						label="隊伍 A"
 						id="teamASelect"
 						teams={teams}
-						onTeamSelect={(teamId) => handleTeamChange("A", teamId)}
+						onTeamSelect={(teamId: number, teamName: string) => handleTeamChange("A", teamId, teamName)}
 					/>
 					<div className={appStyle.vs}>VS</div>
 					<TeamSelect
 						label="隊伍 B"
 						id="teamBSelect"
 						teams={teams}
-						onTeamSelect={(teamId) => handleTeamChange("B", teamId)}
+						onTeamSelect={(teamId: number, teamName: string) => handleTeamChange("B", teamId, teamName)}
 					/>
 					<button id="resetBtn" title="還原原始名單">
 						重置陣容
 					</button>
 				</section>
 
-				<section className={ArenaStyle.arena}>
-					<TeamPanel teamName="隊伍 A" players={rosterA} />
-					<TeamPanel teamName="隊伍 B" players={rosterB} />
-				</section>
+				<Arena
+					teamA={teamA}
+					teamB={teamB}
+					rosterA={rosterA}
+					rosterB={rosterB}
+					teamAWinProb={teamAWinProb}
+					teamBWinProb={teamBWinProb}
+					movePlayer={movePlayer}
+				/>
 
 				<section className={appStyle.notes}>
 					<p>

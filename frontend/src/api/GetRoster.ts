@@ -1,4 +1,4 @@
-const ROSTER_URL = (teamId: string) => `https://statsapi.mlb.com/api/v1/teams/${teamId}/roster`;
+const ROSTER_URL = (teamId: number) => `https://statsapi.mlb.com/api/v1/teams/${teamId}/roster`;
 
 function idToRating(id: number) {
     const s = String(id) + 'mlbrating_v1';
@@ -11,7 +11,7 @@ function idToRating(id: number) {
     return r;
 }
 
-async function getRoster(teamId: string): Promise<Player[]> {
+async function getRoster(teamId: number): Promise<Player[]> {
     try {
         const res = await fetch(ROSTER_URL(teamId));
         if (!res.ok) throw new Error('roster fetch failed');

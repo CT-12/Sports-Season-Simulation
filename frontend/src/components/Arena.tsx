@@ -1,0 +1,62 @@
+// Style
+import ArenaStyle from "../styles/Arena.module.css";
+// Components
+import TeamPanel from "./TeamPanel";
+// Utils
+import { computeTeamRating } from "../utils/ComputeTeamStat";
+
+function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, movePlayer }: ArenaProps) {
+    // 加在「放置的目標區」上的監聽器。
+    // 移動到「目標區域」的上方時
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { 
+        e.preventDefault(); // 必須要有這行，才能允許放置（drop）
+        e.dataTransfer.dropEffect = 'move';
+    }
+    // 在「目標區域」上方放開滑鼠按鍵時
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>, teamName: string) => { 
+        e.preventDefault();
+        const payload = e.dataTransfer.getData('text/plain');
+        if (!payload) return;
+        const data = JSON.parse(payload);
+
+        const sourceTeam: string = data.teamName;
+        const targetTeam: string = teamName;
+        // if dragging from same container and dropped inside, ignore
+        if (sourceTeam && sourceTeam === targetTeam) {
+            // do nothing (or re-order if needed)
+            return;
+        }
+        
+        let p: Player = {
+            id: data.id,
+            name: data.name,
+            rating: Number(data.rating),
+            position: data.position
+        }
+        // remove from old parent and append to new
+        movePlayer(p, sourceTeam, targetTeam);
+    }
+
+    return (
+        <div className={ArenaStyle.arena}>
+            <TeamPanel 
+                teamName={teamA} 
+                players={rosterA} 
+                rating={computeTeamRating(rosterA)} 
+                winProb={teamAWinProb} 
+                onDragOver={handleDragOver} 
+                onDrop={handleDrop} 
+            />
+            <TeamPanel 
+                teamName={teamB} 
+                players={rosterB} 
+                rating={computeTeamRating(rosterB)} 
+                winProb={teamBWinProb} 
+                onDragOver={handleDragOver} 
+                onDrop={handleDrop} 
+            />
+        </div>
+    )
+}
+
+export default Arena;
