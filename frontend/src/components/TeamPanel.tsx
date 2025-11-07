@@ -4,8 +4,6 @@ import PlayerCardStyle from "../styles/PlayerCard.module.css";
 import ArenaStyle from "../styles/Arena.module.css";
 // Component
 import PlayerCard from "./PlayerCard";
-// Utils
-// import { handleDragOver, handleDrop } from "../utils/handlers";
 
 function TeamPanel({ teamName, players, rating, winProb, onDragOver, onDrop }: TeamPanelProps) {
 

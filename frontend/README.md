@@ -1,6 +1,6 @@
 # Setup
 
-## Prepare enviroment
+## Prepare environment
 ### Download `node.js`
 ```shell
 brew install node
