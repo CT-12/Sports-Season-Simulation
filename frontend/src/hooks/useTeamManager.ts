@@ -19,7 +19,7 @@ export function useTeamManager() {
     const [originalRosterA, setOriginalRosterA] = useState<Player[]>([]);
     const [originalRosterB, setOriginalRosterB] = useState<Player[]>([]);
 
-	const handleTeamChange = async (
+	const handleTeamSelect = async (
 		side: "A" | "B", 
 		teamId: number, 
 		teamName: string
@@ -78,7 +78,7 @@ export function useTeamManager() {
         teamB,
         rosterA,
         rosterB,
-        handleTeamChange,
+        handleTeamSelect,
 		movePlayer,
         resetRosters
     };

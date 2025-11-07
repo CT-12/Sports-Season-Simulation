@@ -13,8 +13,7 @@ interface TeamPanelProps {
 }
 
 interface TeamSelectProps {
-    label: string;
-    id: string;
-    teams: Team[];
-    onTeamSelect: (teamId: number, teamName: string) => void;
+    teams: { id: number; name: string }[];
+    onTeamsSelected: (side: "A" | "B", teamId: number, teamName: string) => void;
+    onResetRosters: () => void;
 }
