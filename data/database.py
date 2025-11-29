@@ -190,7 +190,7 @@ def insert_player(cursor, data):
     
     cursor.execute(sql_player, (
         player_id, season, player_name, current_team_id,
-        pos.get('position_code'), pos.get('position_name'), pos.get('position_type')
+        pos.get('position_code'), pos.get('position_name'), pos.get('position_type'),current_team_id
     ))
     
 
