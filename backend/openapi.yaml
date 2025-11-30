@@ -1,0 +1,393 @@
+openapi: 3.0.3
+info:
+  title: MLB Season Simulator API
+  description: |
+    REST API for MLB Season Simulator providing team data, player rosters, and matchup analysis with dual prediction methods.
+    
+    **Features:**
+    - Team and roster data from PostgreSQL database
+    - **Dual prediction methods:**
+      - **Pythagorean**: Season-to-season prediction with regression to mean
+      - **Elo**: Dynamic rating system with season regression
+    - Monte Carlo simulation (10,000 iterations) for robust predictions
+    - 2026 season predictions based on 2025 data
+    
+    **Base URL:** `http://localhost:8000`
+    
+    **Version History:**
+    - v2.0.0 (2025-11-30): Added Elo method, Monte Carlo for both methods
+    - v1.0.0 (2025-11-29): Initial Pythagorean-based implementation
+  version: 2.0.0
+  contact:
+    name: MLB Season Simulator
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: http://localhost:8000/api
+    description: API base path
+
+tags:
+  - name: Teams
+    description: Team and roster management endpoints
+  - name: Matchup Analysis
+    description: Team matchup analysis with statistical predictions
+
+paths:
+  /api/teams/:
+    get:
+      tags:
+        - Teams
+      summary: Get all MLB teams
+      description: Returns a list of all MLB teams from the PostgreSQL database
+      operationId: getTeams
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  teams:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Team'
+              example:
+                teams:
+                  - id: 109
+                    name: Los Angeles Dodgers
+                  - id: 147
+                    name: New York Yankees
+                  - id: 117
+                    name: Houston Astros
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/matchup/:
+    post:
+      tags:
+        - Matchup Analysis
+      summary: Analyze team matchup
+      description: |
+        Analyzes a matchup between two MLB teams using one of two rating methods:
+        
+        **Method 1: Pythagorean (default)**
+        - Predicts 2026 season performance based on 2025 data
+        - Uses Pythagorean expectation with regression to mean
+        - Monte Carlo simulation (10,000 iterations) for scores and win probability
+        
+        **Method 2: Elo**
+        - Predicts 2026 season using dynamic Elo ratings from 2025
+        - Applies season regression (0.75 weight)
+        - Monte Carlo simulation (10,000 iterations) for scores and win probability
+        
+        **Returns:**
+        - Player rosters for both teams (from PostgreSQL database)
+        - Team scores (Monte Carlo simulated, 0-100 scale)
+        - Win probabilities (Monte Carlo simulated, percentage)
+        
+        **Fixed Parameters:**
+        - Base season: 2025
+        - Prediction for: 2026
+        - Monte Carlo simulations: 10,000
+        - Pythagorean regression weight: 0.7
+        - Elo regression weight: 0.75
+        
+        **Note:** 
+        - Player rosters fetched from PostgreSQL in real-time
+        - Player scores are temporarily random (40-100)
+        - Elo method requires running `python manage.py calculate_elo` first
+      operationId: analyzeMatchup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchupRequest'
+            examples:
+              pythagorean:
+                summary: Pythagorean method (default)
+                value:
+                  team_A: Los Angeles Dodgers
+                  team_B: New York Yankees
+                  method: Pythagorean
+              elo:
+                summary: Elo method
+                value:
+                  team_A: Los Angeles Dodgers
+                  team_B: New York Yankees
+                  method: Elo
+              default:
+                summary: Without method (defaults to Pythagorean)
+                value:
+                  team_A: Los Angeles Dodgers
+                  team_B: New York Yankees
+      responses:
+        '200':
+          description: Successful matchup analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchupResponse'
+              examples:
+                pythagorean:
+                  summary: Pythagorean method result
+                  value:
+                    team_A:
+                      - id: 660271
+                        name: Shohei Ohtani
+                        position: DH
+                        score: 85.3
+                      - id: 660670
+                        name: Mookie Betts
+                        position: RF
+                        score: 92.1
+                    team_B:
+                      - id: 592450
+                        name: Aaron Judge
+                        position: RF
+                        score: 88.7
+                      - id: 547989
+                        name: Giancarlo Stanton
+                        position: DH
+                        score: 76.4
+                    team_A_score: 55.72
+                    team_B_score: 56.27
+                    team_A_win_prob: 47.38
+                    team_B_win_prob: 52.62
+                elo:
+                  summary: Elo method result
+                  value:
+                    team_A:
+                      - id: 660271
+                        name: Shohei Ohtani
+                        position: DH
+                        score: 85.3
+                    team_B:
+                      - id: 592450
+                        name: Aaron Judge
+                        position: RF
+                        score: 88.7
+                    team_A_score: 67.51
+                    team_B_score: 67.38
+                    team_A_win_prob: 51.22
+                    team_B_win_prob: 48.78
+        '400':
+          description: Bad request - Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_teams:
+                  summary: Missing team names
+                  value:
+                    error: Both team_A and team_B are required
+                invalid_method:
+                  summary: Invalid method
+                  value:
+                    error: method must be either "Pythagorean" or "Elo"
+        '404':
+          description: Teams not found or insufficient data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_data:
+                  summary: Insufficient data (Pythagorean)
+                  value:
+                    error: Failed to analyze matchup using Pythagorean method. Please check team names and ensure required data exists.
+                missing_elo:
+                  summary: Elo ratings not calculated
+                  value:
+                    error: Failed to analyze matchup using Elo method. Please check team names and ensure required data exists. (Elo ratings must be calculated first using python manage.py calculate_elo)
+
+components:
+  schemas:
+    Team:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique MLB team identifier
+          example: 109
+        name:
+          type: string
+          description: Team name
+          example: Los Angeles Dodgers
+      required:
+        - id
+        - name
+
+    Player:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique player identifier
+          example: 660271
+        name:
+          type: string
+          description: Player full name
+          example: Shohei Ohtani
+        position:
+          type: string
+          description: Player position abbreviation
+          example: DH
+          enum:
+            - P
+            - C
+            - 1B
+            - 2B
+            - 3B
+            - SS
+            - LF
+            - CF
+            - RF
+            - DH
+      required:
+        - id
+        - name
+        - position
+
+    MatchupRequest:
+      type: object
+      properties:
+        team_A:
+          type: string
+          description: First team name (fuzzy search supported)
+          example: Los Angeles Dodgers
+        team_B:
+          type: string
+          description: Second team name (fuzzy search supported)
+          example: New York Yankees
+        method:
+          type: string
+          description: Rating method to use for prediction
+          enum:
+            - Pythagorean
+            - Elo
+          default: Pythagorean
+          example: Pythagorean
+      required:
+        - team_A
+        - team_B
+
+    PlayerWithScore:
+      type: object
+      description: Player in matchup roster with score
+      properties:
+        id:
+          type: integer
+          description: Unique player identifier
+          example: 660271
+        name:
+          type: string
+          description: Player name
+          example: Shohei Ohtani
+        position:
+          type: string
+          description: Player position
+          example: DH
+          enum:
+            - P
+            - C
+            - 1B
+            - 2B
+            - 3B
+            - SS
+            - LF
+            - CF
+            - RF
+            - DH
+        score:
+          type: number
+          format: float
+          description: Player score (40-100, temporarily random)
+          minimum: 40
+          maximum: 100
+          example: 85.3
+      required:
+        - id
+        - name
+        - position
+        - score
+
+    MatchupResponse:
+      type: object
+      properties:
+        team_A:
+          type: array
+          description: Team A player roster with scores
+          items:
+            $ref: '#/components/schemas/PlayerWithScore'
+        team_B:
+          type: array
+          description: Team B player roster with scores
+          items:
+            $ref: '#/components/schemas/PlayerWithScore'
+        team_A_score:
+          type: number
+          format: float
+          description: Team A's predicted 2026 score (0-100, Monte Carlo simulated)
+          minimum: 0
+          maximum: 100
+          example: 55.72
+        team_B_score:
+          type: number
+          format: float
+          description: Team B's predicted 2026 score (0-100, Monte Carlo simulated)
+          minimum: 0
+          maximum: 100
+          example: 56.27
+        team_A_win_prob:
+          type: number
+          format: float
+          description: Team A's win probability percentage (Monte Carlo simulated)
+          minimum: 0
+          maximum: 100
+          example: 47.38
+        team_B_win_prob:
+          type: number
+          format: float
+          description: Team B's win probability percentage (Monte Carlo simulated)
+          minimum: 0
+          maximum: 100
+          example: 52.62
+      required:
+        - team_A
+        - team_B
+        - team_A_score
+        - team_B_score
+        - team_A_win_prob
+        - team_B_win_prob
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Team ID is required
+      required:
+        - error
+
+  securitySchemes:
+    {}
+    # Future: Add authentication if needed
+    # bearerAuth:
+    #   type: http
+    #   scheme: bearer
+    #   bearerFormat: JWT
+
+security: []
+  # Future: Apply security globally if needed
+  # - bearerAuth: []
