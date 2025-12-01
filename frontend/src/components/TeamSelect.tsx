@@ -32,6 +32,14 @@ function TeamSelect({ teams, onTeamsSelected, onResetRosters }: TeamSelectProps)
             >
                 重置陣容
             </button>
+
+            <button 
+                id="simulateBtn" 
+                className={TeamSelectStyle["trigger-btn"]}
+                onClick={()=>{}} // TODO: implement simulate function
+            >
+                開始模擬
+            </button>
         </div>
 
         <div id="teamModal" className={`${TeamSelectStyle.modal} ${modalOpen ? TeamSelectStyle['modal-active'] : ''}`}>
