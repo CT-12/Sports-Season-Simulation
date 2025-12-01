@@ -6,12 +6,12 @@ This module can be reused across multiple API endpoints.
 """
 
 from django.db import connection
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 def fetch_team_roster(team_id: int, season: int = 2025) -> List[Dict[str, Any]]:
     """
-    Fetch roster for a specific team from the database.
+    Fetch roster for a specific team from the database with player statistics.
     
     This is a utility function that can be used by any API endpoint
     that needs team roster data.
@@ -21,13 +21,18 @@ def fetch_team_roster(team_id: int, season: int = 2025) -> List[Dict[str, Any]]:
         season (int): Season year (default: 2025)
         
     Returns:
-        List[Dict]: List of player dictionaries with id, name, position, and score
+        List[Dict]: List of player dictionaries with id, name, position, and Rating
                    Returns empty list if fetch fails
     
     Example:
         >>> roster = fetch_team_roster(109, 2025)
         >>> print(roster[0])
-        {'id': 660271, 'name': 'Shohei Ohtani', 'position': 'DH', 'score': 85.5}
+        {
+            'id': 660271, 
+            'name': 'Shohei Ohtani', 
+            'position': 'DH', 
+            'Rating': {'AVG': 0.304, 'OPS': 1.036, 'ERA': None, 'WHIP': None}
+        }
     """
     try:
         with connection.cursor() as cursor:
@@ -56,16 +61,18 @@ def fetch_team_roster(team_id: int, season: int = 2025) -> List[Dict[str, Any]]:
             for row in rows:
                 player_id = row[0]
                 player_name = row[1]
-                position_name = row[2] or 'N/A'  # Use position_name directly from database
+                position_name = row[2] or 'N/A'
+                position_type = row[3]
                 
-                # Generate temporary score
-                score = _generate_player_score(player_id)
+                # Get player rating based on position type
+                # Pass player_name for special handling (e.g., Shohei Ohtani)
+                rating = _get_player_rating(player_id, season, position_type, player_name)
                 
                 players.append({
                     'id': player_id,
                     'name': player_name,
-                    'position': position_name,  # Directly from database
-                    'score': score
+                    'position': position_name,
+                    'Rating': rating
                 })
             
             return players
@@ -75,24 +82,102 @@ def fetch_team_roster(team_id: int, season: int = 2025) -> List[Dict[str, Any]]:
         return []
 
 
-def _generate_player_score(player_id: int) -> float:
+def _get_player_rating(player_id: int, season: int, position_type: str, player_name: str = '') -> Dict[str, Optional[float]]:
     """
-    Generate a random score for a player.
+    Get player rating from database based on position type.
     
     Args:
-        player_id (int): Player's unique ID (used for random seed)
+        player_id (int): Player's unique ID
+        season (int): Season year
+        position_type (str): Position type ('Pitcher', 'Catcher', 'Infielder', 'Outfielder')
+        player_name (str): Player name for special handling (e.g., Shohei Ohtani)
     
     Returns:
-        float: Random score between 40.0 and 100.0
+        dict: {
+            'AVG': float or None,
+            'OPS': float or None,
+            'ERA': float or None,
+            'WHIP': float or None
+        }
     
     Note:
-        This is a temporary placeholder until real player ratings are implemented.
-        Uses player_id as seed for consistency across requests.
+        - Pitchers: ERA and WHIP from player_pitching_stats
+        - Others: AVG and OPS from player_hitting_stats
+        - Special: Shohei Ohtani gets stats from both tables (two-way player)
     """
-    import random
-    random.seed(player_id)
-    score = random.uniform(40.0, 100.0)
-    return round(score, 1)
+    rating = {
+        'AVG': None,
+        'OPS': None,
+        'ERA': None,
+        'WHIP': None
+    }
+    
+    try:
+        with connection.cursor() as cursor:
+            # Special handling for Shohei Ohtani (two-way player)
+            if 'Shohei Ohtani' in player_name or 'Ohtani' in player_name:
+                # Get both pitching and hitting stats
+                # Pitching stats
+                sql_pitching = """
+                    SELECT era, whip
+                    FROM player_pitching_stats
+                    WHERE player_id = %s AND season = %s
+                    LIMIT 1
+                """
+                cursor.execute(sql_pitching, [player_id, season])
+                row_pitching = cursor.fetchone()
+                
+                if row_pitching:
+                    rating['ERA'] = float(row_pitching[0]) if row_pitching[0] is not None else None
+                    rating['WHIP'] = float(row_pitching[1]) if row_pitching[1] is not None else None
+                
+                # Hitting stats
+                sql_hitting = """
+                    SELECT avg, ops
+                    FROM player_hitting_stats
+                    WHERE player_id = %s AND season = %s
+                    LIMIT 1
+                """
+                cursor.execute(sql_hitting, [player_id, season])
+                row_hitting = cursor.fetchone()
+                
+                if row_hitting:
+                    rating['AVG'] = float(row_hitting[0]) if row_hitting[0] is not None else None
+                    rating['OPS'] = float(row_hitting[1]) if row_hitting[1] is not None else None
+            
+            elif position_type == 'Pitcher':
+                # Regular pitcher: only pitching stats
+                sql = """
+                    SELECT era, whip
+                    FROM player_pitching_stats
+                    WHERE player_id = %s AND season = %s
+                    LIMIT 1
+                """
+                cursor.execute(sql, [player_id, season])
+                row = cursor.fetchone()
+                
+                if row:
+                    rating['ERA'] = float(row[0]) if row[0] is not None else None
+                    rating['WHIP'] = float(row[1]) if row[1] is not None else None
+            else:
+                # Regular hitter: only hitting stats
+                sql = """
+                    SELECT avg, ops
+                    FROM player_hitting_stats
+                    WHERE player_id = %s AND season = %s
+                    LIMIT 1
+                """
+                cursor.execute(sql, [player_id, season])
+                row = cursor.fetchone()
+                
+                if row:
+                    rating['AVG'] = float(row[0]) if row[0] is not None else None
+                    rating['OPS'] = float(row[1]) if row[1] is not None else None
+    
+    except Exception as e:
+        print(f"[Error] Failed to fetch rating for player {player_id}: {e}")
+    
+    return rating
 
 
 def get_player_by_id(player_id: int, season: int = 2025) -> Dict[str, Any]:

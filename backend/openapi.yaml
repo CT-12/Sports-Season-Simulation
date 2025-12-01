@@ -15,9 +15,10 @@ info:
     **Base URL:** `http://localhost:8000`
     
     **Version History:**
+    - v2.1.0 (2025-12-01): Added team rankings API, player statistics integration
     - v2.0.0 (2025-11-30): Added Elo method, Monte Carlo for both methods
     - v1.0.0 (2025-11-29): Initial Pythagorean-based implementation
-  version: 2.0.0
+  version: 2.1.0
   contact:
     name: MLB Season Simulator
   license:
@@ -34,6 +35,8 @@ tags:
     description: Team and roster management endpoints
   - name: Matchup Analysis
     description: Team matchup analysis with statistical predictions
+  - name: Rankings
+    description: Team rankings prediction for upcoming season
   - name: Team Ranking
     description: Rank MLB teams by hitter and pitcher metrics using Z-score normalization
 
@@ -267,6 +270,89 @@ paths:
                   value:
                     error: Failed to analyze matchup using Elo method. Please check team names and ensure required data exists. (Elo ratings must be calculated first using python manage.py calculate_elo)
 
+  /api/team_ranking/:
+    post:
+      tags:
+        - Rankings
+      summary: Predict 2026 team rankings by league
+      description: |
+        Predicts 2026 team rankings separated by American League (AL) and National League (NL).
+        
+        **Method 1: Pythagorean**
+        - Uses 2025 season runs scored/allowed
+        - Applies regression to mean (0.7 weight)
+        - Predicts 2026 win rates
+        - Ranks teams by predicted strength
+        
+        **Method 2: Elo**
+        - Uses latest 2025 Elo ratings
+        - Applies season regression (0.75 weight)
+        - Predicts 2026 Elo ratings
+        - Ranks teams by predicted strength
+        
+        **Returns:**
+        - NL teams ranked from strongest to weakest
+        - AL teams ranked from strongest to weakest
+      operationId: predictRankings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RankingsRequest'
+            examples:
+              pythagorean:
+                summary: Pythagorean method
+                value:
+                  method: Pythagorean
+              elo:
+                summary: Elo method
+                value:
+                  method: Elo
+      responses:
+        '200':
+          description: Successful rankings prediction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankingsResponse'
+              example:
+                NL:
+                  - Los Angeles Dodgers
+                  - Atlanta Braves
+                  - Philadelphia Phillies
+                  - San Diego Padres
+                  - New York Mets
+                AL:
+                  - New York Yankees
+                  - Houston Astros
+                  - Tampa Bay Rays
+                  - Toronto Blue Jays
+                  - Seattle Mariners
+        '400':
+          description: Bad request - Invalid method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: method must be either "Pythagorean" or "Elo"
+        '404':
+          description: Insufficient data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                no_data:
+                  summary: No data available
+                  value:
+                    error: Failed to calculate rankings using Pythagorean method. Please ensure required data exists.
+                missing_elo:
+                  summary: Elo ratings not calculated
+                  value:
+                    error: Failed to calculate rankings using Elo method. Please ensure required data exists. (Elo ratings must be calculated first using python manage.py calculate_elo)
+
 components:
   schemas:
     Team:
@@ -338,9 +424,38 @@ components:
         - team_A
         - team_B
 
-    PlayerWithScore:
+    PlayerRating:
       type: object
-      description: Player in matchup roster with score
+      description: Player statistics
+      properties:
+        AVG:
+          type: number
+          format: float
+          description: Batting average (for hitters)
+          nullable: true
+          example: 0.304
+        OPS:
+          type: number
+          format: float
+          description: On-base plus slugging (for hitters)
+          nullable: true
+          example: 1.036
+        ERA:
+          type: number
+          format: float
+          description: Earned run average (for pitchers)
+          nullable: true
+          example: 3.14
+        WHIP:
+          type: number
+          format: float
+          description: Walks and hits per inning pitched (for pitchers)
+          nullable: true
+          example: 1.04
+
+    PlayerWithRating:
+      type: object
+      description: Player in matchup roster with statistics
       properties:
         id:
           type: integer
@@ -365,32 +480,28 @@ components:
             - CF
             - RF
             - DH
-        score:
-          type: number
-          format: float
-          description: Player score (40-100, temporarily random)
-          minimum: 40
-          maximum: 100
-          example: 85.3
+            - OF
+        Rating:
+          $ref: '#/components/schemas/PlayerRating'
       required:
         - id
         - name
         - position
-        - score
+        - Rating
 
     MatchupResponse:
       type: object
       properties:
         team_A:
           type: array
-          description: Team A player roster with scores
+          description: Team A player roster with statistics
           items:
-            $ref: '#/components/schemas/PlayerWithScore'
+            $ref: '#/components/schemas/PlayerWithRating'
         team_B:
           type: array
-          description: Team B player roster with scores
+          description: Team B player roster with statistics
           items:
-            $ref: '#/components/schemas/PlayerWithScore'
+            $ref: '#/components/schemas/PlayerWithRating'
         team_A_score:
           type: number
           format: float
@@ -426,6 +537,43 @@ components:
         - team_B_score
         - team_A_win_prob
         - team_B_win_prob
+
+    RankingsRequest:
+      type: object
+      properties:
+        method:
+          type: string
+          description: Prediction method to use
+          enum:
+            - Pythagorean
+            - Elo
+          default: Pythagorean
+          example: Pythagorean
+
+    RankingsResponse:
+      type: object
+      properties:
+        NL:
+          type: array
+          description: National League teams ranked by predicted 2026 strength (best to worst)
+          items:
+            type: string
+          example:
+            - Los Angeles Dodgers
+            - Atlanta Braves
+            - Philadelphia Phillies
+        AL:
+          type: array
+          description: American League teams ranked by predicted 2026 strength (best to worst)
+          items:
+            type: string
+          example:
+            - New York Yankees
+            - Houston Astros
+            - Tampa Bay Rays
+      required:
+        - NL
+        - AL
 
     Error:
       type: object
