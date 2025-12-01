@@ -1,3 +1,39 @@
+.app {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.headerLeft, .headerRight {
+    flex: 1;
+}
+
+.headerRight {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.titleGroup {
+    flex: 2; /* Adjust flex value as needed */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.subtitle {
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
 /* controls */
 .controls{
     display:flex;

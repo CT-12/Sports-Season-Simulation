@@ -1,44 +1,51 @@
-// Style
+import { useState } from 'react';
 import appStyle from "./styles/app.module.css";
-// Components
 import TeamSelect from "./components/TeamSelect.tsx";
 import Arena from "./components/Arena.tsx";
-// Hooks
-import {useTeamManager} from "./hooks/useTeamManager.ts";
-
-import {computeWinProbability} from "./utils/ComputeTeamStat.ts";
+import { useTeamManager } from "./hooks/useTeamManager.ts";
+import { computeWinProbability } from "./utils/ComputeTeamStat.ts";
+import UISlider from './components/UISlider.tsx';
 
 function App() {
-
+	const [mode, setMode] = useState('Team');
 	const {
 		teams,
-        teamA,
-        teamB,
-        rosterA,
-        rosterB,
-        handleTeamSelect,
+		teamA,
+		teamB,
+		rosterA,
+		rosterB,
+		handleTeamSelect,
 		movePlayer,
 		resetRosters,
 	} = useTeamManager();
 
-
 	const { teamAWinProb, teamBWinProb } = computeWinProbability(rosterA, rosterB);
 
 	return (
-		<>
-			<header>
-				<h1>⚾ MLB 對戰模擬器</h1>
-				<p className="subtitle">
-					從 MLB Stats API
-					讀取隊伍與名單，拖放球員交換陣容，依能力分數即時計算勝率
-				</p>
+		<div className={appStyle.app}>
+			<header className={appStyle.header}>
+				<div className={appStyle.headerLeft}></div>
+				<div className={appStyle.titleGroup}>
+					<h1>⚾ MLB 對戰模擬器</h1>
+					<p className={appStyle.subtitle}>
+						從 MLB Stats API 讀取隊伍與名單，拖放球員交換陣容，依能力分數即時計算勝率
+					</p>
+				</div>
+				<div className={appStyle.headerRight}>
+					<UISlider
+						options={['Team', 'Player']}
+						selected={mode}
+						onChange={setMode}
+					/>
+				</div>
 			</header>
 
 			<main>
-				<TeamSelect 
+				<TeamSelect
 					teams={teams}
 					onTeamsSelected={handleTeamSelect}
 					onResetRosters={resetRosters}
+					mode={mode}
 				/>
 
 				<Arena
@@ -49,6 +56,7 @@ function App() {
 					teamAWinProb={teamAWinProb}
 					teamBWinProb={teamBWinProb}
 					movePlayer={movePlayer}
+					mode={mode}
 				/>
 
 				<section className={appStyle.notes}>
@@ -63,8 +71,9 @@ function App() {
 			<footer>
 				<small>資料來源：MLB Stats API（https://statsapi.mlb.com）</small>
 			</footer>
-		</>
+		</div>
 	);
 }
 
 export default App;
+

@@ -10,10 +10,12 @@ interface TeamPanelProps {
     winProb: number;
     onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
     onDrop: (e: React.DragEvent<HTMLDivElement>, teamName: string) => void;
+    mode: string;
 }
 
 interface TeamSelectProps {
     teams: { id: number; name: string }[];
     onTeamsSelected: (side: "A" | "B", teamId: number, teamName: string) => void;
     onResetRosters: () => void;
+    mode: string;
 }
