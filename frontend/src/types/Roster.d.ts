@@ -18,4 +18,5 @@ interface RosterItem {
 interface PlayCardProps {
     player: Player;
     belongTeam: string;
+    mode: string;
 }

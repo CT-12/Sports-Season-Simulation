@@ -10,4 +10,5 @@ interface ArenaProps {
         sourceTeam: string,
         targetTeam: string
     ) => void;
+    mode: string;
 }

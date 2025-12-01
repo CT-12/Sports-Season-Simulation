@@ -10,6 +10,7 @@ interface TeamPanelProps {
     winProb: number;
     onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
     onDrop: (e: React.DragEvent<HTMLDivElement>, teamName: string) => void;
+    mode: string;
 }
 
 interface TeamSelectProps {

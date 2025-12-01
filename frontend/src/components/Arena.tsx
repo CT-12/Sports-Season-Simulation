@@ -5,15 +5,17 @@ import TeamPanel from "./TeamPanel";
 // Utils
 import { computeTeamRating } from "../utils/ComputeTeamStat";
 
-function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, movePlayer }: ArenaProps) {
+function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, movePlayer, mode }: ArenaProps) {
     // 加在「放置的目標區」上的監聽器。
     // 移動到「目標區域」的上方時
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { 
+        if (mode !== 'Player') return;
         e.preventDefault(); // 必須要有這行，才能允許放置（drop）
         e.dataTransfer.dropEffect = 'move';
     }
     // 在「目標區域」上方放開滑鼠按鍵時
     const handleDrop = (e: React.DragEvent<HTMLDivElement>, teamName: string) => { 
+        if (mode !== 'Player') return;
         e.preventDefault();
         const payload = e.dataTransfer.getData('text/plain');
         if (!payload) return;
@@ -45,7 +47,8 @@ function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, mov
                 rating={computeTeamRating(rosterA)} 
                 winProb={teamAWinProb} 
                 onDragOver={handleDragOver} 
-                onDrop={handleDrop} 
+                onDrop={handleDrop}
+                mode={mode}
             />
             <TeamPanel 
                 teamName={teamB} 
@@ -53,7 +56,8 @@ function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, mov
                 rating={computeTeamRating(rosterB)} 
                 winProb={teamBWinProb} 
                 onDragOver={handleDragOver} 
-                onDrop={handleDrop} 
+                onDrop={handleDrop}
+                mode={mode}
             />
         </div>
     )

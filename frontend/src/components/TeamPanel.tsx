@@ -5,7 +5,7 @@ import ArenaStyle from "../styles/Arena.module.css";
 // Component
 import PlayerCard from "./PlayerCard";
 
-function TeamPanel({ teamName, players, rating, winProb, onDragOver, onDrop }: TeamPanelProps) {
+function TeamPanel({ teamName, players, rating, winProb, onDragOver, onDrop, mode }: TeamPanelProps) {
 
     return (
         <div 
@@ -32,7 +32,7 @@ function TeamPanel({ teamName, players, rating, winProb, onDragOver, onDrop }: T
             </div>
             <div className={PlayerCardStyle["player-list"]}>
                 {players.map(player => (
-                    <PlayerCard key={player.id} player={player} belongTeam={teamName}/>
+                    <PlayerCard key={player.id} player={player} belongTeam={teamName} mode={mode} />
                 ))}
             </div>
         </div>

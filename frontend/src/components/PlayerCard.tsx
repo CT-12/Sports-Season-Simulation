@@ -1,10 +1,14 @@
 //Style
 import playCardStyle from "../styles/PlayerCard.module.css";
 
-function PlayerCard({ player, belongTeam }: PlayCardProps) {
+function PlayerCard({ player, belongTeam, mode }: PlayCardProps) {
     
     // Drag handler: 加在「被拖曳的物品」上的監聽器。
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+        if (mode !== 'Player') {
+            e.preventDefault();
+            return;
+        }
         e.currentTarget.classList.add("dragging");
         e.dataTransfer.setData('text/plain', JSON.stringify({
             id: e.currentTarget.dataset.playerId,
@@ -22,7 +26,7 @@ function PlayerCard({ player, belongTeam }: PlayCardProps) {
     return (
         <div
             className={playCardStyle['player-card']}
-            draggable={true}
+            draggable={mode === 'Player'}
             data-player-id={player.id}
             data-name={player.name}
             data-pos={player.position}
