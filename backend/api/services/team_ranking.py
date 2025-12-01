@@ -138,8 +138,9 @@ def aggregate_team_hitting_stats(
                 JOIN player_hitting_stats phs ON p.player_id = phs.player_id 
                     AND p.season = phs.season
                 WHERE t.season = %s
-                    AND p.position_type IN ('OF', 'C', 'SS', 'DH', '2B', '3B', '1B')
+                    AND p.position_type IN ('Outfielder', 'Catcher', 'Infielder', 'Hitter', 'Two-Way Player')
                     AND phs.{metric} IS NOT NULL
+                    AND phs.{metric} > 0
                 GROUP BY t.team_name
             """
             
@@ -155,6 +156,8 @@ def aggregate_team_hitting_stats(
     
     except Exception as e:
         print(f"[Error] Failed to aggregate hitting stats for {metric}: {e}")
+        import traceback
+        traceback.print_exc()
         return {}
 
 
@@ -195,8 +198,9 @@ def aggregate_team_pitching_stats(
                 JOIN player_pitching_stats pps ON p.player_id = pps.player_id 
                     AND p.season = pps.season
                 WHERE t.season = %s
-                    AND p.position_type = 'P'
+                    AND p.position_type = 'Pitcher'
                     AND pps.{metric} IS NOT NULL
+                    AND pps.{metric} > 0
                 GROUP BY t.team_name
             """
             
@@ -212,6 +216,8 @@ def aggregate_team_pitching_stats(
     
     except Exception as e:
         print(f"[Error] Failed to aggregate pitching stats for {metric}: {e}")
+        import traceback
+        traceback.print_exc()
         return {}
 
 
