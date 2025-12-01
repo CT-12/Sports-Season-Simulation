@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  db:
+    # 'build: .' tells Compose to build the Dockerfile in the current directory
+    build: . 
+    container_name: baseball_stats_db
+    
+    # Map port 5432 on your computer (Host) to 5432 in the container
+    ports:
+      - "5433:5432"
+    
+    # (Optional but Recommended) Persist data even if the container is deleted
+    # volumes:
+    #   - postgres_data:/var/lib/postgresql/data
+      
+    # You can override the Dockerfile ENV variables here if needed, 
+    # otherwise, it uses the defaults you set in the Dockerfile.
+    restart: always
+
+# # Define the volume for persistence
+# volumes:
+#   postgres_data:
