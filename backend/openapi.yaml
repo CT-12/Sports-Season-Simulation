@@ -37,6 +37,8 @@ tags:
     description: Team matchup analysis with statistical predictions
   - name: Rankings
     description: Team rankings prediction for upcoming season
+  - name: Team Ranking
+    description: Rank MLB teams by hitter and pitcher metrics using Z-score normalization
 
 paths:
   /api/teams/:
@@ -68,6 +70,61 @@ paths:
                     name: Houston Astros
         '500':
           description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/ranking/:
+    post:
+      tags:
+        - Team Ranking
+      summary: Rank MLB teams by metrics
+      description: |
+        Ranks all 30 MLB teams based on a combination of hitter and pitcher metrics using Z-score normalization.
+        
+        **Features:**
+        - 8 hitting metrics (avg, ops, hr, rbi, r, h, obp, slg)
+        - 6 pitching metrics (era, whip, so, w, l, bb)
+        - Z-score normalization for metric scaling
+        - Automatic direction handling (higher/lower is better)
+        - League separation (AL/NL)
+      operationId: rankTeams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RankingRequest'
+            examples:
+              basic:
+                summary: Basic ranking
+                value:
+                  hitter_metric: ops
+                  pitcher_metric: era
+              detailed:
+                summary: With details
+                value:
+                  hitter_metric: ops
+                  pitcher_metric: era
+                  details: true
+      responses:
+        '200':
+          description: Successful ranking
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RankingResponseBasic'
+                  - $ref: '#/components/schemas/RankingResponseDetailed'
+        '400':
+          description: Bad request - Invalid metrics or missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankingError'
+        '500':
+          description: Server error - Database query failed
           content:
             application/json:
               schema:
@@ -525,6 +582,139 @@ components:
           type: string
           description: Error message
           example: Team ID is required
+      required:
+        - error
+
+    RankingRequest:
+      type: object
+      properties:
+        hitter_metric:
+          type: string
+          enum: [avg, ops, hr, rbi, r, h, obp, slg]
+          example: ops
+        pitcher_metric:
+          type: string
+          enum: [era, whip, so, w, l, bb]
+          example: era
+        season:
+          type: integer
+          example: 2025
+        details:
+          type: boolean
+          default: false
+      required:
+        - hitter_metric
+        - pitcher_metric
+
+    RankingResponseBasic:
+      type: object
+      properties:
+        AL:
+          type: array
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              - type: string
+              - type: number
+        NL:
+          type: array
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              - type: string
+              - type: number
+      required:
+        - AL
+        - NL
+
+    RankingTeamDetailed:
+      type: object
+      properties:
+        rank:
+          type: integer
+          example: 1
+        team_name:
+          type: string
+          example: Houston Astros
+        score:
+          type: number
+          format: float
+          example: 2.345
+        hitter_value:
+          type: number
+          format: float
+          example: 0.832
+        pitcher_value:
+          type: number
+          format: float
+          example: 3.42
+        hitter_z_score:
+          type: number
+          format: float
+          example: 1.234
+        pitcher_z_score:
+          type: number
+          format: float
+          example: 1.111
+      required:
+        - rank
+        - team_name
+        - score
+        - hitter_value
+        - pitcher_value
+        - hitter_z_score
+        - pitcher_z_score
+
+    RankingResponseDetailed:
+      type: object
+      properties:
+        season:
+          type: integer
+          example: 2025
+        hitter_metric:
+          type: string
+          example: ops
+        pitcher_metric:
+          type: string
+          example: era
+        AL:
+          type: array
+          items:
+            $ref: '#/components/schemas/RankingTeamDetailed'
+        NL:
+          type: array
+          items:
+            $ref: '#/components/schemas/RankingTeamDetailed'
+      required:
+        - season
+        - hitter_metric
+        - pitcher_metric
+        - AL
+        - NL
+
+    RankingError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: 'Unknown hitter metric: invalid_metric'
+        available_metrics:
+          type: object
+          properties:
+            hitting:
+              type: array
+              items:
+                type: string
+              example: [avg, ops, hr, rbi, r, h, obp, slg]
+            pitching:
+              type: array
+              items:
+                type: string
+              example: [era, whip, so, w, l, bb]
       required:
         - error
 

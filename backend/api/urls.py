@@ -11,5 +11,7 @@ urlpatterns = [
     
     # Team rankings prediction endpoint
     path('team_ranking/', views.rankings_prediction, name='rankings_prediction'),
+    # Team ranking endpoint
+    path('ranking/', views.team_ranking, name='team_ranking'),
 ]
 

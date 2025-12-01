@@ -1,6 +1,6 @@
 """
 API Views for MLB Season Simulator
-Provides endpoints for matchup analysis and team rankings prediction
+Provides endpoints for matchup analysis, team rankings prediction, and team ranking
 """
 
 from rest_framework.decorators import api_view
@@ -9,6 +9,7 @@ from rest_framework import status
 
 from .services.matchup import analyze_matchup
 from .services.rankings import predict_2026_rankings
+from .services.team_ranking import rank_teams_by_metrics, get_ranking_with_details
 
 
 @api_view(['POST'])
@@ -124,3 +125,95 @@ def rankings_prediction(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+
+@api_view(['POST'])
+def team_ranking(request):
+    """
+    POST /api/ranking/
+    Rank all MLB teams by a combination of hitter and pitcher metrics.
+    
+    Request body:
+    {
+        "hitter_metric": "ops",  // or "avg", "hr", "rbi", etc.
+        "pitcher_metric": "era", // or "whip", "so", "w", "l", etc.
+        "season": 2025           // optional, defaults to latest season
+        "details": false         // optional, set to true for detailed response
+    }
+    
+    Response format (basic):
+    {
+        "AL": [
+            ["New York Yankees", 2.145],
+            ["Houston Astros", 1.892],
+            ...
+        ],
+        "NL": [
+            ["Los Angeles Dodgers", 2.567],
+            ...
+        ]
+    }
+    
+    Response format (with details=true):
+    {
+        "season": 2025,
+        "hitter_metric": "ops",
+        "pitcher_metric": "era",
+        "AL": [
+            {
+                "rank": 1,
+                "team_name": "New York Yankees",
+                "score": 2.145,
+                "hitter_value": 0.820,
+                "pitcher_value": 3.45,
+                "hitter_z_score": 1.234,
+                "pitcher_z_score": 0.911
+            },
+            ...
+        ],
+        "NL": [...]
+    }
+    """
+    # Validate request data
+    hitter_metric = request.data.get('hitter_metric')
+    pitcher_metric = request.data.get('pitcher_metric')
+    season = request.data.get('season')
+    details = request.data.get('details', False)  # Request detailed info
+    
+    if not hitter_metric or not pitcher_metric:
+        return Response(
+            {
+                'error': 'Both hitter_metric and pitcher_metric are required',
+                'available_metrics': {
+                    'hitting': ['avg', 'ops', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
+                    'pitching': ['era', 'whip', 'so', 'w', 'l', 'bb']
+                }
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Get ranking
+        if details:
+            result = get_ranking_with_details(hitter_metric, pitcher_metric, season)
+        else:
+            result = rank_teams_by_metrics(hitter_metric, pitcher_metric, season)
+        
+        return Response(result, status=status.HTTP_200_OK)
+    
+    except ValueError as e:
+        return Response(
+            {
+                'error': str(e),
+                'available_metrics': {
+                    'hitting': ['avg', 'ops', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
+                    'pitching': ['era', 'whip', 'so', 'w', 'l', 'bb']
+                }
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to rank teams: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
