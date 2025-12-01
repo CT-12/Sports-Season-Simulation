@@ -1,9 +1,12 @@
+import { useState } from 'react';
 // Style
 import TeamSelectStyle from "../styles/TeamSelect.module.css";
 // Hooks
 import { useTeamSelect } from "../hooks/useTeamSelect.ts";
+// Components
+import SelectionMenu from './SelectionMenu.tsx';
 
-function TeamSelect({ teams, onTeamsSelected, onResetRosters }: TeamSelectProps) {
+function TeamSelect({ teams, onTeamsSelected, onResetRosters, mode }: TeamSelectProps) {
 
     const {
         selectedTeams,
@@ -14,8 +17,23 @@ function TeamSelect({ teams, onTeamsSelected, onResetRosters }: TeamSelectProps)
         confirmSelection
     } = useTeamSelect({ onTeamsSelected, teams });
 
+    const [teamStat, setTeamStat] = useState('pythagorean');
+    const [hitterStat, setHitterStat] = useState('ops_plus');
+    const [pitcherStat, setPitcherStat] = useState('p_war');
+
+
     return (
         <>
+        <SelectionMenu
+            mode={mode as 'Team' | 'Player'}
+            teamStat={teamStat}
+            setTeamStat={setTeamStat}
+            hitterStat={hitterStat}
+            setHitterStat={setHitterStat}
+            pitcherStat={pitcherStat}
+            setPitcherStat={setPitcherStat}
+        />
+
         <div id="btnContainer" className={TeamSelectStyle["button-container"]}>
             <button 
                 id="openModalBtn" 

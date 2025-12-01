@@ -111,16 +111,13 @@
     border-radius: 5px;
     cursor: pointer;
     font-size: 16px;
+    transition: background-color 0.2s;
 }
 
-.disabled-btn {
-    background-color: gray;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
+.trigger-btn.disabled {
+    background-color: #ced4da;
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
 .confirm-btn:disabled {

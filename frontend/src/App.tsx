@@ -45,6 +45,7 @@ function App() {
 					teams={teams}
 					onTeamsSelected={handleTeamSelect}
 					onResetRosters={resetRosters}
+					mode={mode}
 				/>
 
 				<Arena
@@ -75,3 +76,4 @@ function App() {
 }
 
 export default App;
+
