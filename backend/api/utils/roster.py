@@ -68,11 +68,26 @@ def fetch_team_roster(team_id: int, season: int = 2025) -> List[Dict[str, Any]]:
                 # Pass player_name for special handling (e.g., Shohei Ohtani)
                 rating = _get_player_rating(player_id, season, position_type, player_name)
                 
+                # Ensure all Rating values are JSON-serializable
+                # Convert None to null, Decimal to float
+                json_safe_rating = {}
+                for key, value in rating.items():
+                    if value is None:
+                        json_safe_rating[key] = None
+                    elif isinstance(value, (int, float)):
+                        json_safe_rating[key] = value
+                    else:
+                        # Convert Decimal or other types to float
+                        try:
+                            json_safe_rating[key] = float(value)
+                        except (TypeError, ValueError):
+                            json_safe_rating[key] = value
+                
                 players.append({
                     'id': player_id,
                     'name': player_name,
                     'position': position_name,
-                    'Rating': rating
+                    'Rating': json_safe_rating
                 })
             
             return players
@@ -97,29 +112,40 @@ def _get_player_rating(player_id: int, season: int, position_type: str, player_n
             'AVG': float or None,
             'OPS': float or None,
             'ERA': float or None,
-            'WHIP': float or None
+            'WHIP': float or None,
+            'AVG_normalized': int or None,      # T-Score (0-99)
+            'OPS_plus': int or None,             # OPS+ (100 = average)
+            'ERA_plus': int or None,             # ERA+ (100 = average)
+            'WHIP_normalized': int or None       # T-Score (0-99)
         }
     
     Note:
-        - Pitchers: ERA and WHIP from player_pitching_stats
-        - Others: AVG and OPS from player_hitting_stats
-        - Special: Shohei Ohtani gets stats from both tables (two-way player)
+        - Pitchers: ERA, WHIP, ERA+ (from DB), WHIP_normalized (calculated)
+        - Others: AVG, OPS, AVG_normalized (calculated), OPS+ (from DB)
+        - Special: Shohei Ohtani gets stats from both tables
+        - *_plus stats are pre-calculated and stored in DB
+        - *_normalized stats are calculated using T-Score method
     """
+    from ..utils.player_rating import calculate_normalized_stat
+    
     rating = {
         'AVG': None,
         'OPS': None,
         'ERA': None,
-        'WHIP': None
+        'WHIP': None,
+        'AVG_normalized': None,
+        'OPS_plus': None,
+        'ERA_plus': None,
+        'WHIP_normalized': None
     }
     
     try:
         with connection.cursor() as cursor:
             # Special handling for Shohei Ohtani (two-way player)
             if 'Shohei Ohtani' in player_name or 'Ohtani' in player_name:
-                # Get both pitching and hitting stats
-                # Pitching stats
+                # Get pitching stats with ERA+
                 sql_pitching = """
-                    SELECT era, whip
+                    SELECT era, whip, era_plus
                     FROM player_pitching_stats
                     WHERE player_id = %s AND season = %s
                     LIMIT 1
@@ -130,10 +156,17 @@ def _get_player_rating(player_id: int, season: int, position_type: str, player_n
                 if row_pitching:
                     rating['ERA'] = float(row_pitching[0]) if row_pitching[0] is not None else None
                     rating['WHIP'] = float(row_pitching[1]) if row_pitching[1] is not None else None
+                    rating['ERA_plus'] = int(row_pitching[2]) if row_pitching[2] is not None else None
+                    
+                    # Calculate WHIP_normalized
+                    if rating['WHIP'] is not None:
+                        rating['WHIP_normalized'] = calculate_normalized_stat(
+                            rating['WHIP'], 'WHIP', season
+                        )
                 
-                # Hitting stats
+                # Get hitting stats with OPS+
                 sql_hitting = """
-                    SELECT avg, ops
+                    SELECT avg, ops, ops_plus
                     FROM player_hitting_stats
                     WHERE player_id = %s AND season = %s
                     LIMIT 1
@@ -144,11 +177,18 @@ def _get_player_rating(player_id: int, season: int, position_type: str, player_n
                 if row_hitting:
                     rating['AVG'] = float(row_hitting[0]) if row_hitting[0] is not None else None
                     rating['OPS'] = float(row_hitting[1]) if row_hitting[1] is not None else None
+                    rating['OPS_plus'] = int(row_hitting[2]) if row_hitting[2] is not None else None
+                    
+                    # Calculate AVG_normalized
+                    if rating['AVG'] is not None:
+                        rating['AVG_normalized'] = calculate_normalized_stat(
+                            rating['AVG'], 'AVG', season
+                        )
             
             elif position_type == 'Pitcher':
-                # Regular pitcher: only pitching stats
+                # Regular pitcher: ERA+, WHIP_normalized
                 sql = """
-                    SELECT era, whip
+                    SELECT era, whip, era_plus
                     FROM player_pitching_stats
                     WHERE player_id = %s AND season = %s
                     LIMIT 1
@@ -159,10 +199,17 @@ def _get_player_rating(player_id: int, season: int, position_type: str, player_n
                 if row:
                     rating['ERA'] = float(row[0]) if row[0] is not None else None
                     rating['WHIP'] = float(row[1]) if row[1] is not None else None
+                    rating['ERA_plus'] = int(row[2]) if row[2] is not None else None
+                    
+                    # Calculate WHIP_normalized
+                    if rating['WHIP'] is not None:
+                        rating['WHIP_normalized'] = calculate_normalized_stat(
+                            rating['WHIP'], 'WHIP', season
+                        )
             else:
-                # Regular hitter: only hitting stats
+                # Regular hitter: OPS+, AVG_normalized
                 sql = """
-                    SELECT avg, ops
+                    SELECT avg, ops, ops_plus
                     FROM player_hitting_stats
                     WHERE player_id = %s AND season = %s
                     LIMIT 1
@@ -173,6 +220,13 @@ def _get_player_rating(player_id: int, season: int, position_type: str, player_n
                 if row:
                     rating['AVG'] = float(row[0]) if row[0] is not None else None
                     rating['OPS'] = float(row[1]) if row[1] is not None else None
+                    rating['OPS_plus'] = int(row[2]) if row[2] is not None else None
+                    
+                    # Calculate AVG_normalized
+                    if rating['AVG'] is not None:
+                        rating['AVG_normalized'] = calculate_normalized_stat(
+                            rating['AVG'], 'AVG', season
+                        )
     
     except Exception as e:
         print(f"[Error] Failed to fetch rating for player {player_id}: {e}")
