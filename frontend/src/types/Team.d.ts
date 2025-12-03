@@ -1,6 +1,9 @@
 interface Team {
     id: number;
     name: string;
+    logoUrl?: string;
+    pythagoreanScore?: number;
+    eloScore?: number;
 }
 
 interface TeamPanelProps {
@@ -11,6 +14,10 @@ interface TeamPanelProps {
     onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
     onDrop: (e: React.DragEvent<HTMLDivElement>, teamName: string) => void;
     mode: string;
+    hitterStat: string;
+    pitcherStat: string;
+    teams?: Team[];
+    teamStat?: string;
 }
 
 interface TeamSelectProps {

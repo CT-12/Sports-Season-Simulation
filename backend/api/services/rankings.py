@@ -28,7 +28,7 @@ TEAM_LEAGUE_MAP = {
     "Minnesota Twins": "AL",
     "Houston Astros": "AL",
     "Los Angeles Angels": "AL",
-    "Oakland Athletics": "AL",
+    "Athletics": "AL",  # 資料庫中是 "Athletics" 而不是 "Oakland Athletics"
     "Seattle Mariners": "AL",
     "Texas Rangers": "AL",
     

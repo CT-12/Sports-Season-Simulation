@@ -5,7 +5,7 @@ import TeamPanel from "./TeamPanel";
 // Utils
 import { computeTeamRating } from "../utils/ComputeTeamStat";
 
-function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, movePlayer, mode }: ArenaProps) {
+function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, movePlayer, mode, hitterStat, pitcherStat, teams, teamStat }: ArenaProps) {
     // 加在「放置的目標區」上的監聽器。
     // 移動到「目標區域」的上方時
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { 
@@ -49,6 +49,10 @@ function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, mov
                 onDragOver={handleDragOver} 
                 onDrop={handleDrop}
                 mode={mode}
+                hitterStat={hitterStat}
+                pitcherStat={pitcherStat}
+                teams={teams}
+                teamStat={teamStat}
             />
             <TeamPanel 
                 teamName={teamB} 
@@ -58,6 +62,10 @@ function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, mov
                 onDragOver={handleDragOver} 
                 onDrop={handleDrop}
                 mode={mode}
+                hitterStat={hitterStat}
+                pitcherStat={pitcherStat}
+                teams={teams}
+                teamStat={teamStat}
             />
         </div>
     )
