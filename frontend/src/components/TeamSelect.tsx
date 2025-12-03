@@ -2,7 +2,7 @@ import TeamSelectStyle from "../styles/TeamSelect.module.css";
 import { useTeamSelect } from "../hooks/useTeamSelect.ts";
 import { getDisplayTeamName } from "../utils/DisplayTeamName";
 
-function TeamSelect({ teams, onTeamsSelected, onResetRosters }: TeamSelectProps) {
+function TeamSelect({ teams, onTeamsSelected, onResetRosters, onRunSimulation, isSimulating }: TeamSelectProps) {
 
     const {
         selectedTeams,
@@ -43,9 +43,10 @@ function TeamSelect({ teams, onTeamsSelected, onResetRosters }: TeamSelectProps)
             <button 
                 id="simulateBtn" 
                 className={TeamSelectStyle["trigger-btn"]}
-                onClick={()=>{}}
+                onClick={onRunSimulation}
+                disabled={isSimulating}
             >
-                開始模擬
+                {isSimulating ? '⏳ 正在執行蒙地卡羅模擬...' : '開始模擬'}
             </button>
         </div>
 

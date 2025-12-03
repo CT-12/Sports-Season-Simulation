@@ -152,8 +152,9 @@ def _calculate_pythagorean_matchup(
     win_rate_b = prediction_b['next_year_projected_win_rate']
     
     # Log5 formula: P(A beats B) = (pA - pA*pB) / (pA + pB - 2*pA*pB)
-    team_a_win_prob = calculate_log5_win_probability(win_rate_a, win_rate_b) * 100
-    team_b_win_prob = 100 - team_a_win_prob
+    log5_result = calculate_log5_win_probability(win_rate_a, win_rate_b)
+    team_a_win_prob = log5_result['team_a_win_prob']
+    team_b_win_prob = log5_result['team_b_win_prob']
     
     return {
         'team_a_score': round(team_a_score, 2),

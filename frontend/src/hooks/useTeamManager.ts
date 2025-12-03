@@ -14,8 +14,8 @@ export function useTeamManager() {
     const [teamBId, setTeamBId] = useState<number | null>(null)
     
     // 指標 state（與 SelectionMenu 的 value 對應）
-    const [hitterStat, setHitterStat] = useState('ops_plus') // 對應 OPS+
-    const [pitcherStat, setPitcherStat] = useState('p_war')  // 對應 WAR
+    const [hitterStat, setHitterStat] = useState('ops') // OPS
+    const [pitcherStat, setPitcherStat] = useState('era')  // ERA
 
     useEffect(() => {
         getTeams().then((fetchedTeams) => {

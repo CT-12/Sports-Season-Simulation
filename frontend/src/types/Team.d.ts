@@ -24,5 +24,7 @@ interface TeamSelectProps {
     teams: { id: number; name: string }[];
     onTeamsSelected: (side: "A" | "B", teamId: number, teamName: string) => void;
     onResetRosters: () => void;
+    onRunSimulation: () => void;
+    isSimulating?: boolean;
     mode: string;
 }

@@ -1,18 +1,28 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
-// 指標名稱對應表（SelectionMenu 的 value → 後端 Rating 欄位名）
-const METRIC_MAP: Record<string, string> = {
-  'ops_plus': 'OPS',      // fallback 用 OPS（後端可能沒有 OPS+）
+// 顯示用的指標對應（前端選擇 → 顯示在畫面上的值）
+const DISPLAY_METRIC_MAP: Record<string, string> = {
+  'ops': 'OPS',
   'h_war': 'WAR',
-  'wrc_plus': 'OPS',      // fallback 用 OPS
-  'p_war': 'WAR',
+  'avg': 'AVG',
   'era': 'ERA',
+  'p_war': 'WAR',
   'whip': 'WHIP',
+};
+
+// 計算用的指標對應（前端選擇 → 用於計算 Rating 的值）
+const CALCULATION_METRIC_MAP: Record<string, string> = {
+  'ops': 'OPS_plus',           // 顯示 OPS，計算用 OPS+
+  'h_war': 'WAR',              // WAR 不變
+  'avg': 'AVG_normalized',     // 顯示 AVG，計算用 AVG_normalized
+  'era': 'ERA_plus',           // 顯示 ERA，計算用 ERA+
+  'p_war': 'WAR',              // WAR 不變
+  'whip': 'WHIP_normalized',   // 顯示 WHIP，計算用 WHIP_normalized
 };
 
 function getMetricValue(ratingObj: Record<string, any> | undefined, metricKey: string) {
   if (!ratingObj) return null;
-  const fieldName = METRIC_MAP[metricKey] || metricKey.toUpperCase();
+  const fieldName = metricKey;
   const tryKeys = [fieldName, fieldName.toLowerCase(), fieldName.toUpperCase()];
   for (const k of tryKeys) {
     if (k in ratingObj && ratingObj[k] != null) return ratingObj[k];
@@ -22,8 +32,8 @@ function getMetricValue(ratingObj: Record<string, any> | undefined, metricKey: s
 
 function mapRawToPlayer(
   item: any,
-  hitterMetric: string = 'ops_plus',
-  pitcherMetric: string = 'p_war'
+  hitterMetric: string = 'ops',
+  pitcherMetric: string = 'era'
 ) {
   const pid = item?.id ?? Math.floor(Math.random() * 1e6);
   const name = item?.name ?? 'Unknown';
@@ -32,17 +42,38 @@ function mapRawToPlayer(
   const isPitcher = position.toLowerCase().includes('pitcher') || position === 'P';
   const raw = item?.Rating ?? {};
   
-  let rating = 0;
+  let displayValue = 0;  // 顯示的值
+  let rating = 0;        // 計算用的值
   
   if (isPitcher) {
-    const val = getMetricValue(raw, pitcherMetric);
-    rating = val != null ? Number(val) : 0;
+    // 投手：取得顯示值和計算值
+    const displayField = DISPLAY_METRIC_MAP[pitcherMetric] || pitcherMetric.toUpperCase();
+    const calculationField = CALCULATION_METRIC_MAP[pitcherMetric] || pitcherMetric.toUpperCase();
+    
+    const displayVal = getMetricValue(raw, displayField);
+    const calcVal = getMetricValue(raw, calculationField);
+    
+    displayValue = displayVal != null ? Number(displayVal) : 0;
+    rating = calcVal != null ? Number(calcVal) : 0;
   } else {
-    const val = getMetricValue(raw, hitterMetric);
-    rating = val != null ? Number(val) : 0;
+    // 打者：取得顯示值和計算值
+    const displayField = DISPLAY_METRIC_MAP[hitterMetric] || hitterMetric.toUpperCase();
+    const calculationField = CALCULATION_METRIC_MAP[hitterMetric] || hitterMetric.toUpperCase();
+    
+    const displayVal = getMetricValue(raw, displayField);
+    const calcVal = getMetricValue(raw, calculationField);
+    
+    displayValue = displayVal != null ? Number(displayVal) : 0;
+    rating = calcVal != null ? Number(calcVal) : 0;
   }
   
-  return { id: pid, name, position, rating };
+  return { 
+    id: pid, 
+    name, 
+    position, 
+    rating,           // 用於計算 Rating
+    displayValue      // 用於顯示
+  };
 }
 
 async function getRoster(
@@ -89,7 +120,7 @@ async function getRoster(
     const raw = Array.isArray(data.team_A) ? data.team_A : [];
     
     if (raw && raw.length > 0) {
-      const players = raw.map(item => mapRawToPlayer(item, hitterMetric, pitcherMetric));
+      const players = raw.map((item: any) => mapRawToPlayer(item, hitterMetric, pitcherMetric));
       console.debug('[GetRoster] loaded', players.length, 'players');
       return players;
     }
