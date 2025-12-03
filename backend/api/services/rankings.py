@@ -1,15 +1,19 @@
 """
 Team Rankings Service
 
-Predicts 2026 team rankings using Pythagorean or Elo method.
+Predicts 2026 team rankings using Monte Carlo season simulation.
+Both Pythagorean and Elo methods simulate a full 162-game season.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from decimal import Decimal
+import numpy as np
 
 from ..utils.team_rating import calculate_team_pythagorean_rating
-from ..utils.season_prediction import predict_next_season_win_rate
-from ..utils.elo_rating import get_team_elo_rating
+from ..utils.season_prediction import (
+    predict_next_season_win_rate,
+    calculate_log5_win_probability
+)
 from ..utils.teams import fetch_all_teams
 
 
@@ -53,15 +57,18 @@ TEAM_LEAGUE_MAP = {
 
 def predict_2026_rankings(method: str = "Pythagorean") -> Dict[str, List[str]]:
     """
-    Predict 2026 team rankings using specified method.
+    Predict 2026 team rankings using Monte Carlo season simulation.
+    
+    Simulates a full 162-game season using specified method, then ranks
+    teams by simulated wins.
     
     Args:
         method (str): "Pythagorean" or "Elo"
     
     Returns:
         dict: {
-            "NL": ["Team 1", "Team 2", ...],  # Sorted by predicted strength
-            "AL": ["Team 1", "Team 2", ...]   # Sorted by predicted strength
+            "NL": ["Team 1", "Team 2", ...],  # Sorted by simulated wins
+            "AL": ["Team 1", "Team 2", ...]   # Sorted by simulated wins
         }
     
     Example:
@@ -70,32 +77,39 @@ def predict_2026_rankings(method: str = "Pythagorean") -> Dict[str, List[str]]:
         'New York Yankees'
     """
     BASE_SEASON = 2025
+    SIMULATIONS = 1000  # Monte Carlo simulations
+    GAMES_PER_SEASON = 162
     
     # Get all teams
     teams = fetch_all_teams(BASE_SEASON)
     if not teams:
         return {"NL": [], "AL": []}
     
-    # Calculate scores for all teams
-    team_scores = {}
-    
+    # Get team win probabilities for each method
     if method == "Pythagorean":
-        team_scores = _calculate_pythagorean_rankings(teams, BASE_SEASON)
+        team_win_rates = _get_pythagorean_win_rates(teams, BASE_SEASON)
     else:  # Elo
-        team_scores = _calculate_elo_rankings(teams, BASE_SEASON)
+        team_win_rates = _get_elo_win_rates(teams, BASE_SEASON)
     
-    # Separate by league and sort
+    # Run Monte Carlo season simulation
+    team_avg_wins = _simulate_season_monte_carlo(
+        team_win_rates, 
+        GAMES_PER_SEASON, 
+        SIMULATIONS
+    )
+    
+    # Separate by league and sort by wins
     nl_teams = []
     al_teams = []
     
-    for team_name, score in team_scores.items():
+    for team_name, avg_wins in team_avg_wins.items():
         league = TEAM_LEAGUE_MAP.get(team_name)
         if league == "NL":
-            nl_teams.append((team_name, score))
+            nl_teams.append((team_name, avg_wins))
         elif league == "AL":
-            al_teams.append((team_name, score))
+            al_teams.append((team_name, avg_wins))
     
-    # Sort by score (descending - higher is better)
+    # Sort by wins (descending - most wins first)
     nl_teams.sort(key=lambda x: x[1], reverse=True)
     al_teams.sort(key=lambda x: x[1], reverse=True)
     
@@ -106,15 +120,15 @@ def predict_2026_rankings(method: str = "Pythagorean") -> Dict[str, List[str]]:
     }
 
 
-def _calculate_pythagorean_rankings(teams: List[Dict], season: int) -> Dict[str, float]:
+def _get_pythagorean_win_rates(teams: List[Dict], season: int) -> Dict[str, float]:
     """
-    Calculate 2026 predictions using Pythagorean method.
+    Get 2026 predicted win rates using Pythagorean method.
     
     Returns:
-        dict: {team_name: predicted_2026_score}
+        dict: {team_name: predicted_win_rate}
     """
     REGRESSION_WEIGHT = 0.7
-    team_scores = {}
+    team_win_rates = {}
     
     for team in teams:
         team_id = str(team['id'])
@@ -132,24 +146,23 @@ def _calculate_pythagorean_rankings(teams: List[Dict], season: int) -> Dict[str,
             weight=REGRESSION_WEIGHT
         )
         
-        # Convert to 0-100 scale
-        score = prediction['next_year_projected_win_rate'] * 100
-        team_scores[team_name] = score
+        team_win_rates[team_name] = prediction['next_year_projected_win_rate']
     
-    return team_scores
+    return team_win_rates
 
 
-def _calculate_elo_rankings(teams: List[Dict], season: int) -> Dict[str, float]:
+def _get_elo_win_rates(teams: List[Dict], season: int) -> Dict[str, float]:
     """
-    Calculate 2026 predictions using Elo method.
+    Get 2026 predicted win rates using Elo method.
     
     Returns:
-        dict: {team_name: predicted_2026_score}
+        dict: {team_name: predicted_win_rate}
     """
     INITIAL_ELO = Decimal('1500')
     REGRESSION_WEIGHT = Decimal('0.75')
-    team_scores = {}
+    team_elo_ratings = {}
     
+    # First, get all Elo ratings
     for team in teams:
         team_id = team['id']
         team_name = team['name']
@@ -171,10 +184,54 @@ def _calculate_elo_rankings(teams: List[Dict], season: int) -> Dict[str, float]:
         
         # Apply season regression for 2026
         rating_2026 = (rating_2025 * REGRESSION_WEIGHT) + (INITIAL_ELO * (Decimal('1') - REGRESSION_WEIGHT))
-        
-        # Convert to 0-100 scale
-        # Elo range: 1200-1800 → Score range: 0-100
-        score = ((float(rating_2026) - 1200) / 600) * 100
-        team_scores[team_name] = score
+        team_elo_ratings[team_name] = float(rating_2026)
     
-    return team_scores
+    # Convert Elo ratings to win rates
+    # Average opponent has Elo = 1500
+    team_win_rates = {}
+    for team_name, elo in team_elo_ratings.items():
+        # Win probability against average team (1500)
+        # P(win) = 1 / (1 + 10^((1500 - elo) / 400))
+        win_rate = 1 / (1 + 10 ** ((1500 - elo) / 400))
+        team_win_rates[team_name] = win_rate
+    
+    return team_win_rates
+
+
+def _simulate_season_monte_carlo(
+    team_win_rates: Dict[str, float],
+    games_per_season: int,
+    simulations: int
+) -> Dict[str, float]:
+    """
+    Simulate full season using Monte Carlo method.
+    
+    Args:
+        team_win_rates: Dictionary of {team_name: win_rate}
+        games_per_season: Number of games per season (162)
+        simulations: Number of Monte Carlo simulations
+    
+    Returns:
+        dict: {team_name: average_wins_across_simulations}
+    """
+    team_names = list(team_win_rates.keys())
+    team_total_wins = {name: 0.0 for name in team_names}
+    
+    # Run simulations
+    for _ in range(simulations):
+        # Simulate one season for each team
+        for team_name in team_names:
+            win_rate = team_win_rates[team_name]
+            
+            # Simulate games using binomial distribution
+            # Each game is a Bernoulli trial with probability win_rate
+            wins = np.random.binomial(games_per_season, win_rate)
+            team_total_wins[team_name] += wins
+    
+    # Calculate average wins
+    team_avg_wins = {
+        name: total_wins / simulations 
+        for name, total_wins in team_total_wins.items()
+    }
+    
+    return team_avg_wins
