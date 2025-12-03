@@ -73,6 +73,11 @@ def matchup_analysis(request):
             status=status.HTTP_404_NOT_FOUND
         )
     
+    # Debug: Check result before returning
+    print(f"[DEBUG] Result keys: {result.keys()}")
+    print(f"[DEBUG] Team A count: {len(result.get('team_A', []))}")
+    print(f"[DEBUG] Team B count: {len(result.get('team_B', []))}")
+    
     return Response(result, status=status.HTTP_200_OK)
 
 

@@ -426,7 +426,7 @@ components:
 
     PlayerRating:
       type: object
-      description: Player statistics
+      description: Player statistics with both raw values and standardized ratings
       properties:
         AVG:
           type: number
@@ -452,6 +452,34 @@ components:
           description: Walks and hits per inning pitched (for pitchers)
           nullable: true
           example: 1.04
+        AVG_normalized:
+          type: integer
+          description: T-Score normalized batting average (0-99, 50=average). Higher is better.
+          nullable: true
+          minimum: 0
+          maximum: 99
+          example: 75
+        OPS_plus:
+          type: integer
+          description: OPS+ statistic (100=league average). Higher is better. Pre-calculated and stored in DB.
+          nullable: true
+          minimum: 0
+          maximum: 999
+          example: 144
+        ERA_plus:
+          type: integer
+          description: ERA+ statistic (100=league average). Higher is better. Pre-calculated and stored in DB.
+          nullable: true
+          minimum: 0
+          maximum: 999
+          example: 127
+        WHIP_normalized:
+          type: integer
+          description: T-Score normalized WHIP (0-99, 50=average). Higher is better.
+          nullable: true
+          minimum: 0
+          maximum: 99
+          example: 72
 
     PlayerWithRating:
       type: object
