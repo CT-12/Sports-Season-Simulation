@@ -15,8 +15,10 @@ interface RosterItem {
     };
 }
 
-interface PlayCardProps {
+interface PlayerCardProps {
     player: Player;
     belongTeam: string;
     mode: string;
+    hitterStat: string;
+    pitcherStat: string;
 }

@@ -1,0 +1,83 @@
+.playerList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  min-height: 150px;
+}
+
+.emptyMessage {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+  font-size: 0.95rem;
+}
+
+.playerCard {
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.playerCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-color: #0066cc;
+}
+
+.playerCardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.playerName {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.playerPosition {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.ratingSection {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #eee;
+}
+
+.ratingBadge {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #333;
+  font-weight: 500;
+}
+
+.ratingBadge strong {
+  color: #0066cc;
+  font-size: 1.1rem;
+}
+
+.metricLabel {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #999;
+  font-style: italic;
+}

@@ -1,49 +1,60 @@
-//Style
-import playCardStyle from "../styles/PlayerCard.module.css";
+import PlayerCardStyle from "../styles/PlayerCard.module.css";
 
-function PlayerCard({ player, belongTeam, mode }: PlayCardProps) {
-    
-    // Drag handler: 加在「被拖曳的物品」上的監聽器。
+function PlayerCard({ player, belongTeam, mode, hitterStat, pitcherStat }: PlayerCardProps) {
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-        if (mode !== 'Player') {
-            e.preventDefault();
-            return;
-        }
-        e.currentTarget.classList.add("dragging");
-        e.dataTransfer.setData('text/plain', JSON.stringify({
-            id: e.currentTarget.dataset.playerId,
-            name: e.currentTarget.dataset.name,
-            position: e.currentTarget.dataset.pos,
-            rating: e.currentTarget.dataset.rating,
+        if (mode !== 'Player') return;
+        const payload = {
+            id: player.id,
+            name: player.name,
+            rating: player.rating,
+            position: player.position,
             teamName: belongTeam
-        }));
+        };
+        e.dataTransfer.setData('text/plain', JSON.stringify(payload));
         e.dataTransfer.effectAllowed = 'move';
     }
-    const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-        e.currentTarget.classList.remove("dragging");
-    }
+
+    const isPitcher = (pos?: string) => !!pos && (pos.toLowerCase().includes("pitcher") || pos === "P");
+    const isTwoWay = (pos?: string) => !!pos && pos.toLowerCase().includes("two");
+
+    const pos = player.position ?? "";
+    const twoWay = isTwoWay(pos);
+    const pitcher = isPitcher(pos);
+
+    // 將 value key 轉成顯示標籤（ops_plus → OPS+）
+    const metricLabel = (key: string) => {
+        const map: Record<string, string> = {
+            'ops_plus': 'OPS+',
+            'h_war': 'WAR',
+            'wrc_plus': 'wRC+',
+            'p_war': 'WAR',
+            'era': 'ERA',
+            'whip': 'WHIP',
+        };
+        return map[key] || key.toUpperCase();
+    };
+
+    const currentMetric = pitcher ? metricLabel(pitcherStat ?? 'p_war') : metricLabel(hitterStat ?? 'ops_plus');
 
     return (
         <div
-            className={playCardStyle['player-card']}
+            className={PlayerCardStyle["player-card"]}
             draggable={mode === 'Player'}
-            data-player-id={player.id}
-            data-name={player.name}
-            data-pos={player.position}
-            data-rating={player.rating}
             onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
         >
-            <div className="name">{player.name}</div>
-            <div className="pos">{player.position || ''}</div>
-            <div className="rating">
-                <div className="score">{player.rating}</div>
-                <div className="bar">
-                    <div
-                        className="fill"
-                        style={{ width: `${((player.rating - 40) / 60) * 100}%` }}
-                    ></div>
-                </div>
+            <div className={PlayerCardStyle["player-name"]}>{player.name}</div>
+            <div className={PlayerCardStyle["player-position"]}>位置：{pos || "N/A"}</div>
+            <div className={PlayerCardStyle["player-rating"]}>
+                分數：<strong>{player.rating ?? '-'}</strong>
+                <span style={{ 
+                    marginLeft: '6px', 
+                    fontSize: '0.85em', 
+                    fontStyle: 'italic', 
+                    color: '#999',
+                    fontWeight: 'normal'
+                }}>
+                    ({currentMetric})
+                </span>
             </div>
         </div>
     );
