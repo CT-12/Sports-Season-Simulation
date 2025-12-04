@@ -132,8 +132,8 @@ def team_ranking(request):
             {
                 'error': 'Both hitter_metric and pitcher_metric are required',
                 'available_metrics': {
-                    'hitting': ['avg', 'ops', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
-                    'pitching': ['era', 'whip', 'so', 'w', 'l', 'bb']
+                    'hitting': ['avg', 'ops', 'ops_plus', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
+                    'pitching': ['era', 'era_plus', 'whip', 'so', 'w', 'l', 'bb']
                 }
             },
             status=status.HTTP_400_BAD_REQUEST
@@ -153,8 +153,8 @@ def team_ranking(request):
             {
                 'error': str(e),
                 'available_metrics': {
-                    'hitting': ['avg', 'ops', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
-                    'pitching': ['era', 'whip', 'so', 'w', 'l', 'bb']
+                    'hitting': ['avg', 'ops', 'ops_plus', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
+                    'pitching': ['era', 'era_plus', 'whip', 'so', 'w', 'l', 'bb']
                 }
             },
             status=status.HTTP_400_BAD_REQUEST

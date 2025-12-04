@@ -59,6 +59,7 @@ METRIC_DIRECTION = {
     # Hitting metrics (higher is better)
     "avg": True,      # Batting Average
     "ops": True,      # On-base Plus Slugging
+    "ops_plus": True, # On-base Plus Slugging Plus (advanced metric, scaled to 100)
     "hr": True,       # Home Runs
     "rbi": True,      # Runs Batted In
     "r": True,        # Runs
@@ -75,6 +76,7 @@ METRIC_DIRECTION = {
     # Pitching metrics (higher is better)
     "so": True,       # Strikeouts
     "w": True,        # Wins
+    "era_plus": True, # ERA Plus (advanced metric, scaled to 100, higher is better)
 }
 
 
