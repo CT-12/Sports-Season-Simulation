@@ -279,25 +279,28 @@ def normalize_z_score_by_direction(z_score: float, metric: str) -> float:
         return -z_score
 
 
-def rank_teams_by_metrics(
+def rank_teams_from_aggregated_stats(
+    hitting_stats: Dict[str, float],
+    pitching_stats: Dict[str, float],
     hitter_metric: str,
-    pitcher_metric: str,
-    season: Optional[int] = None
+    pitcher_metric: str
 ) -> Dict[str, List[Tuple[str, float]]]:
     """
-    Rank all teams by a combination of hitter and pitcher metrics.
+    Rank teams using pre-aggregated statistics (from DB or memory).
+    
+    This is the core algorithm extracted to work with any data source.
     
     Algorithm:
-    1. Aggregate team-level stats for both metrics
-    2. Calculate Z-scores for each metric
-    3. Normalize Z-scores by direction (lower-is-better vs higher-is-better)
-    4. Combine scores: final_score = z_hitter + z_pitcher
-    5. Sort teams and split by league
+    1. Calculate Z-scores for each metric
+    2. Normalize Z-scores by direction
+    3. Combine scores: final_score = z_hitter + z_pitcher
+    4. Sort teams and split by league
     
     Args:
-        hitter_metric (str): Hitter metric (e.g., "ops", "avg", "hr", "rbi")
-        pitcher_metric (str): Pitcher metric (e.g., "era", "whip", "so")
-        season (int): Season year. If None, uses latest season.
+        hitting_stats (Dict[str, float]): Team -> average hitter metric
+        pitching_stats (Dict[str, float]): Team -> average pitcher metric
+        hitter_metric (str): Hitter metric name (for direction lookup)
+        pitcher_metric (str): Pitcher metric name (for direction lookup)
     
     Returns:
         Dict with structure:
@@ -308,34 +311,15 @@ def rank_teams_by_metrics(
         Sorted by score descending within each league.
     
     Raises:
-        ValueError: If invalid metrics provided
-    
-    Example:
-        >>> result = rank_teams_by_metrics("ops", "era", season=2025)
-        >>> print(result["AL"][0])
-        ("New York Yankees", 2.45)
+        ValueError: If no teams found in either stats dict
     """
-    # Validate metrics
-    if hitter_metric not in METRIC_DIRECTION:
-        raise ValueError(f"Unknown hitter metric: {hitter_metric}")
-    if pitcher_metric not in METRIC_DIRECTION:
-        raise ValueError(f"Unknown pitcher metric: {pitcher_metric}")
-    
-    if season is None:
-        season = get_latest_season()
-    
-    # Step 1: Aggregate stats
-    hitting_stats = aggregate_team_hitting_stats(hitter_metric, season)
-    pitching_stats = aggregate_team_pitching_stats(pitcher_metric, season)
-    
     if not hitting_stats or not pitching_stats:
-        raise Exception(
-            f"Failed to fetch stats. "
-            f"Hitting stats found: {len(hitting_stats)}, "
-            f"Pitching stats found: {len(pitching_stats)}"
+        raise ValueError(
+            f"Empty stats provided. "
+            f"Hitting: {len(hitting_stats)}, Pitching: {len(pitching_stats)}"
         )
     
-    # Step 2: Calculate league statistics (mean, std_dev)
+    # Calculate league statistics (mean, std_dev)
     hitter_values = list(hitting_stats.values())
     pitcher_values = list(pitching_stats.values())
     
@@ -345,7 +329,7 @@ def rank_teams_by_metrics(
     hitter_std = statistics.stdev(hitter_values) if len(hitter_values) > 1 else 0
     pitcher_std = statistics.stdev(pitcher_values) if len(pitcher_values) > 1 else 0
     
-    # Step 3: Calculate combined scores
+    # Calculate combined scores
     team_scores = {}
     
     for team_name in hitting_stats.keys():
@@ -365,7 +349,7 @@ def rank_teams_by_metrics(
         final_score = hitter_z + pitcher_z
         team_scores[team_name] = final_score
     
-    # Step 4: Sort and split by league
+    # Sort and split by league
     sorted_teams = sorted(
         team_scores.items(),
         key=lambda x: x[1],
@@ -381,17 +365,23 @@ def rank_teams_by_metrics(
     return result
 
 
-def get_ranking_with_details(
+def get_ranking_with_details_from_aggregated_stats(
+    hitting_stats: Dict[str, float],
+    pitching_stats: Dict[str, float],
     hitter_metric: str,
     pitcher_metric: str,
-    season: Optional[int] = None
+    season: int
 ) -> Dict:
     """
-    Get detailed ranking information including metric values and Z-scores.
+    Get detailed ranking using pre-aggregated statistics (from DB or memory).
+    
+    This is the detailed version of rank_teams_from_aggregated_stats.
     
     Args:
-        hitter_metric (str): Hitter metric
-        pitcher_metric (str): Pitcher metric
+        hitting_stats (Dict[str, float]): Team -> average hitter metric
+        pitching_stats (Dict[str, float]): Team -> average pitcher metric
+        hitter_metric (str): Hitter metric name
+        pitcher_metric (str): Pitcher metric name
         season (int): Season year
     
     Returns:
@@ -400,40 +390,12 @@ def get_ranking_with_details(
             "season": int,
             "hitter_metric": str,
             "pitcher_metric": str,
-            "AL": [
-                {
-                    "rank": int,
-                    "team_name": str,
-                    "score": float,
-                    "hitter_value": float,
-                    "pitcher_value": float,
-                    "hitter_z_score": float,
-                    "pitcher_z_score": float
-                },
-                ...
-            ],
-            "NL": [...]
+            "AL": [{...}, ...],
+            "NL": [{...}, ...]
         }
-    
-    Example:
-        >>> details = get_ranking_with_details("ops", "era", season=2025)
-        >>> print(details["AL"][0])
     """
-    if season is None:
-        season = get_latest_season()
-    
-    # Validate metrics
-    if hitter_metric not in METRIC_DIRECTION:
-        raise ValueError(f"Unknown hitter metric: {hitter_metric}")
-    if pitcher_metric not in METRIC_DIRECTION:
-        raise ValueError(f"Unknown pitcher metric: {pitcher_metric}")
-    
-    # Get stats
-    hitting_stats = aggregate_team_hitting_stats(hitter_metric, season)
-    pitching_stats = aggregate_team_pitching_stats(pitcher_metric, season)
-    
     if not hitting_stats or not pitching_stats:
-        raise Exception("Failed to fetch stats")
+        raise ValueError("Empty stats provided")
     
     # Calculate league statistics
     hitter_values = list(hitting_stats.values())
@@ -498,3 +460,120 @@ def get_ranking_with_details(
             nl_rank += 1
     
     return result
+
+
+def rank_teams_by_metrics(
+    hitter_metric: str,
+    pitcher_metric: str,
+    season: Optional[int] = None
+) -> Dict[str, List[Tuple[str, float]]]:
+    """
+    Rank all teams by a combination of hitter and pitcher metrics (from database).
+    
+    This is a convenience wrapper that queries the DB and delegates to
+    rank_teams_from_aggregated_stats for the actual ranking logic.
+    
+    Args:
+        hitter_metric (str): Hitter metric (e.g., "ops", "avg", "hr", "rbi")
+        pitcher_metric (str): Pitcher metric (e.g., "era", "whip", "so")
+        season (int): Season year. If None, uses latest season.
+    
+    Returns:
+        Dict with structure:
+        {
+            "AL": [("Team Name", score), ...],
+            "NL": [("Team Name", score), ...]
+        }
+        Sorted by score descending within each league.
+    
+    Raises:
+        ValueError: If invalid metrics provided
+    
+    Example:
+        >>> result = rank_teams_by_metrics("ops", "era", season=2025)
+        >>> print(result["AL"][0])
+        ("New York Yankees", 2.45)
+    """
+    # Validate metrics
+    if hitter_metric not in METRIC_DIRECTION:
+        raise ValueError(f"Unknown hitter metric: {hitter_metric}")
+    if pitcher_metric not in METRIC_DIRECTION:
+        raise ValueError(f"Unknown pitcher metric: {pitcher_metric}")
+    
+    if season is None:
+        season = get_latest_season()
+    
+    # Aggregate stats from database
+    hitting_stats = aggregate_team_hitting_stats(hitter_metric, season)
+    pitching_stats = aggregate_team_pitching_stats(pitcher_metric, season)
+    
+    if not hitting_stats or not pitching_stats:
+        raise Exception(
+            f"Failed to fetch stats. "
+            f"Hitting stats found: {len(hitting_stats)}, "
+            f"Pitching stats found: {len(pitching_stats)}"
+        )
+    
+    # Delegate to core ranking logic
+    return rank_teams_from_aggregated_stats(
+        hitting_stats,
+        pitching_stats,
+        hitter_metric,
+        pitcher_metric
+    )
+
+
+def get_ranking_with_details(
+    hitter_metric: str,
+    pitcher_metric: str,
+    season: Optional[int] = None
+) -> Dict:
+    """
+    Get detailed ranking information from database.
+    
+    This is a convenience wrapper that queries the DB and delegates to
+    get_ranking_with_details_from_aggregated_stats for the actual logic.
+    
+    Args:
+        hitter_metric (str): Hitter metric
+        pitcher_metric (str): Pitcher metric
+        season (int): Season year
+    
+    Returns:
+        Dict with structure:
+        {
+            "season": int,
+            "hitter_metric": str,
+            "pitcher_metric": str,
+            "AL": [{...}, ...],
+            "NL": [{...}, ...]
+        }
+    
+    Example:
+        >>> details = get_ranking_with_details("ops", "era", season=2025)
+        >>> print(details["AL"][0])
+    """
+    if season is None:
+        season = get_latest_season()
+    
+    # Validate metrics
+    if hitter_metric not in METRIC_DIRECTION:
+        raise ValueError(f"Unknown hitter metric: {hitter_metric}")
+    if pitcher_metric not in METRIC_DIRECTION:
+        raise ValueError(f"Unknown pitcher metric: {pitcher_metric}")
+    
+    # Get stats from database
+    hitting_stats = aggregate_team_hitting_stats(hitter_metric, season)
+    pitching_stats = aggregate_team_pitching_stats(pitcher_metric, season)
+    
+    if not hitting_stats or not pitching_stats:
+        raise Exception("Failed to fetch stats")
+    
+    # Delegate to core logic
+    return get_ranking_with_details_from_aggregated_stats(
+        hitting_stats,
+        pitching_stats,
+        hitter_metric,
+        pitcher_metric,
+        season
+    )

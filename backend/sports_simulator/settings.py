@@ -165,3 +165,34 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.JSONParser',
     ],
 }
+
+
+# Caching Configuration
+# Supports multiple backends: LocMem (dev), Redis (production)
+# The simulation service uses caching to store the "Base State" of all players
+# to avoid querying the database on every simulation request
+
+CACHE_BACKEND = config('CACHE_BACKEND', default='locmem')
+
+if CACHE_BACKEND == 'redis':
+    # Redis caching (recommended for production)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/1'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            },
+            'KEY_PREFIX': 'mlb_api',
+            'TIMEOUT': 3600,  # Default TTL: 1 hour
+        }
+    }
+else:
+    # Local memory caching (good for development)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'mlb-api-cache',
+            'TIMEOUT': 3600,  # Default TTL: 1 hour
+        }
+    }
