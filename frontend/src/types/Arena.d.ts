@@ -10,4 +10,9 @@ interface ArenaProps {
         sourceTeam: string,
         targetTeam: string
     ) => void;
+    mode: string;
+    hitterStat: string;
+    pitcherStat: string;
+    teams?: Team[];
+    teamStat?: string;
 }

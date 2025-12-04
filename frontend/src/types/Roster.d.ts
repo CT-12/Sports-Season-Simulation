@@ -3,6 +3,7 @@ interface Player {
     name: string,
     position: string,
     rating: number,
+    displayValue?: number,  // 顯示用的原始值
 }
 
 interface RosterItem {
@@ -15,7 +16,10 @@ interface RosterItem {
     };
 }
 
-interface PlayCardProps {
+interface PlayerCardProps {
     player: Player;
     belongTeam: string;
+    mode: string;
+    hitterStat: string;
+    pitcherStat: string;
 }

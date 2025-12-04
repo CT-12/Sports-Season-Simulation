@@ -1,0 +1,37 @@
+.sliderContainer {
+    position: relative;
+    display: flex;
+    width: 120px;
+    height: 30px;
+    background-color: #e0e0e0;
+    border-radius: 15px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.sliderOption {
+    flex: 1;
+    border: none;
+    background-color: transparent;
+    color: #333;
+    font-weight: bold;
+    z-index: 1;
+    transition: color 0.3s ease;
+    cursor: pointer;
+}
+
+.sliderOption.selected {
+    color: white;
+}
+
+.sliderThumb {
+    position: absolute;
+    top: 0;
+    left: calc( (100% / var(--options)) * var(--selected-index) );
+    width: calc(100% / var(--options));
+    height: 100%;
+    background-color: #007bff;
+    border-radius: 15px;
+    transition: left 0.3s ease;
+    z-index: 0;
+}

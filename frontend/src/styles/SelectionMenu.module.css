@@ -1,0 +1,57 @@
+.menuWrapper {
+    display: flex;
+    padding: 12px;
+    background-color: #f7f9fc;
+    border-radius: 12px;
+    margin: 24px 0;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+}
+
+.group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.groupTitle {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    margin: 0;
+    text-align: center;
+}
+
+.optionsContainer {
+    display: flex;
+    background-color: #e9ecef;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.optionButton {
+    padding: 8px 16px;
+    border: none;
+    background-color: transparent;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.optionButton.selected {
+    background-color: #ffffff;
+    color: #007bff;
+    font-weight: 700;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.divider {
+    width: 1px;
+    background-color: #dee2e6;
+    align-self: stretch;
+}

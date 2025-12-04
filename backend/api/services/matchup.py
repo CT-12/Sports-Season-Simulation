@@ -43,13 +43,11 @@ def analyze_matchup(
     Supports two methods:
     1. Pythagorean (default): 
        - 2025 data → Regression to mean → 2026 prediction
-       - Log5 win probability
-       - Monte Carlo scoring
+       - Log5 win probability (no Monte Carlo)
     
     2. Elo:
        - Latest Elo ratings from team_elo_history
-       - Standard Elo win probability formula
-       - Elo-to-score conversion
+       - Standard Elo win probability formula (no Monte Carlo)
     
     Args:
         team_a_name (str): Team A name
@@ -118,10 +116,9 @@ def _calculate_pythagorean_matchup(
 ) -> Optional[Dict[str, float]]:
     """
     Calculate matchup using Pythagorean method with regression to mean.
-    Uses Monte Carlo simulation for both scores and win probability.
+    Uses direct Log5 formula for win probability (no Monte Carlo).
     """
     PREDICTION_WEIGHT = 0.7
-    MC_SIMULATIONS = 10000
     
     # Step 1: Get 2025 Pythagorean ratings
     rating_a = calculate_team_pythagorean_rating(team_a_id, base_season)
@@ -146,45 +143,22 @@ def _calculate_pythagorean_matchup(
         weight=PREDICTION_WEIGHT
     )
     
-    # Step 3: Monte Carlo simulation for both scores and win probability
-    import numpy as np
+    # Step 3: Convert to scores (0-100 scale)
+    team_a_score = prediction_a['next_year_projected_win_rate'] * 100
+    team_b_score = prediction_b['next_year_projected_win_rate'] * 100
     
-    # Base scores from 2026 predictions
-    base_score_a = prediction_a['next_year_projected_win_rate'] * 100
-    base_score_b = prediction_b['next_year_projected_win_rate'] * 100
+    # Step 4: Calculate win probability using Log5 formula (no Monte Carlo)
+    win_rate_a = prediction_a['next_year_projected_win_rate']
+    win_rate_b = prediction_b['next_year_projected_win_rate']
     
-    # Standard deviation based on sample size (games played)
-    std_dev_a = 100 / np.sqrt(rating_a.get('games_played', 100))
-    std_dev_b = 100 / np.sqrt(rating_b.get('games_played', 100))
-    
-    # Run Monte Carlo simulations
-    team_a_scores = []
-    team_b_scores = []
-    team_a_wins = 0
-    
-    for _ in range(MC_SIMULATIONS):
-        # Sample scores from normal distribution
-        score_a = np.random.normal(base_score_a, std_dev_a)
-        score_b = np.random.normal(base_score_b, std_dev_b)
-        
-        # Clip to valid range
-        score_a = max(0, min(100, score_a))
-        score_b = max(0, min(100, score_b))
-        
-        team_a_scores.append(score_a)
-        team_b_scores.append(score_b)
-        
-        # Count wins for probability
-        if score_a > score_b:
-            team_a_wins += 1
-    
-    # Calculate results from simulations
-    team_a_win_prob = (team_a_wins / MC_SIMULATIONS) * 100
-    team_b_win_prob = 100 - team_a_win_prob
+    # Log5 formula: P(A beats B) = (pA - pA*pB) / (pA + pB - 2*pA*pB)
+    log5_result = calculate_log5_win_probability(win_rate_a, win_rate_b)
+    team_a_win_prob = log5_result['team_a_win_prob']
+    team_b_win_prob = log5_result['team_b_win_prob']
     
     return {
-        'team_a_score': round(np.mean(team_a_scores), 2),
-        'team_b_score': round(np.mean(team_b_scores), 2),
+        'team_a_score': round(team_a_score, 2),
+        'team_b_score': round(team_b_score, 2),
         'team_a_win_prob': round(team_a_win_prob, 2),
         'team_b_win_prob': round(team_b_win_prob, 2)
     }
@@ -199,13 +173,11 @@ def _calculate_elo_matchup(
     Calculate matchup using Elo ratings with 2026 prediction.
     
     Uses latest 2025 Elo ratings, applies regression to mean,
-    then uses Monte Carlo simulation for 2026 scores and win probability.
+    then uses standard Elo formula for win probability (no Monte Carlo).
     """
     PREDICTION_WEIGHT = 0.75  # Elo season regression weight
-    MC_SIMULATIONS = 10000
     
     # Get latest available 2025 Elo ratings from database
-    # Query for the most recent rating in the 2025 season
     from django.db import connection as db_connection
     
     with db_connection.cursor() as cursor:
@@ -244,115 +216,20 @@ def _calculate_elo_matchup(
     rating_a_2026 = (rating_a_2025 * REGRESSION_WEIGHT) + (INITIAL_ELO * (Decimal('1') - REGRESSION_WEIGHT))
     rating_b_2026 = (rating_b_2025 * REGRESSION_WEIGHT) + (INITIAL_ELO * (Decimal('1') - REGRESSION_WEIGHT))
     
-    # Convert 2026 Elo to base scores (0-100 scale)
+    # Convert 2026 Elo to display scores (0-100 scale)
     # Elo range: 1200-1800 → Score range: 0-100
-    def elo_to_score(elo):
-        return ((float(elo) - 1200) / 600) * 100
+    team_a_score = ((float(rating_a_2026) - 1200) / 600) * 100
+    team_b_score = ((float(rating_b_2026) - 1200) / 600) * 100
     
-    base_score_a = elo_to_score(rating_a_2026)
-    base_score_b = elo_to_score(rating_b_2026)
-    
-    # Estimate standard deviation based on Elo rating uncertainty
-    # Higher rated teams have shown more stability, lower std dev
-    std_dev_a = abs(float(rating_a_2026 - INITIAL_ELO)) / 400 * 10  # Scaled to 0-100
-    std_dev_b = abs(float(rating_b_2026 - INITIAL_ELO)) / 400 * 10
-    
-    # Ensure reasonable std dev range (3-10)
-    std_dev_a = max(3, min(10, std_dev_a))
-    std_dev_b = max(3, min(10, std_dev_b))
-    
-    # Run Monte Carlo simulation
-    import numpy as np
-    
-    team_a_scores = []
-    team_b_scores = []
-    team_a_wins = 0
-    
-    for _ in range(MC_SIMULATIONS):
-        # Sample scores from normal distribution
-        score_a = np.random.normal(base_score_a, std_dev_a)
-        score_b = np.random.normal(base_score_b, std_dev_b)
-        
-        # Clip to valid range
-        score_a = max(0, min(100, score_a))
-        score_b = max(0, min(100, score_b))
-        
-        team_a_scores.append(score_a)
-        team_b_scores.append(score_b)
-        
-        # Count wins for probability
-        if score_a > score_b:
-            team_a_wins += 1
-    
-    # Calculate results from simulations
-    team_a_win_prob = (team_a_wins / MC_SIMULATIONS) * 100
+    # Calculate win probability using standard Elo formula (no Monte Carlo)
+    # Expected score = 1 / (1 + 10^((Rb - Ra) / 400))
+    rating_diff = float(rating_b_2026 - rating_a_2026)
+    team_a_win_prob = (1 / (1 + 10 ** (rating_diff / 400))) * 100
     team_b_win_prob = 100 - team_a_win_prob
     
     return {
-        'team_a_score': round(np.mean(team_a_scores), 2),
-        'team_b_score': round(np.mean(team_b_scores), 2),
-        'team_a_win_prob': round(team_a_win_prob, 2),
-        'team_b_win_prob': round(team_b_win_prob, 2)
-    }
-    
-    if not rating_a_2025 or not rating_b_2025:
-        print(f"[Error] Elo ratings not found for teams {team_a_id} and/or {team_b_id}")
-        return None
-    
-    # Apply season regression for 2026 prediction
-    # Formula: new_rating = (old_rating × 0.75) + (1500 × 0.25)
-    INITIAL_ELO = 1500
-    rating_a_2026 = (rating_a_2025 * PREDICTION_WEIGHT) + (INITIAL_ELO * (1 - PREDICTION_WEIGHT))
-    rating_b_2026 = (rating_b_2025 * PREDICTION_WEIGHT) + (INITIAL_ELO * (1 - PREDICTION_WEIGHT))
-    
-    # Convert 2026 Elo to base scores (0-100 scale)
-    # Elo range: 1200-1800 → Score range: 0-100
-    def elo_to_score(elo):
-        return ((float(elo) - 1200) / 600) * 100
-    
-    base_score_a = elo_to_score(rating_a_2026)
-    base_score_b = elo_to_score(rating_b_2026)
-    
-    # Estimate standard deviation based on Elo rating uncertainty
-    # Higher rated teams have shown more stability, lower std dev
-    # Typical Elo std dev is about 3-5% of the rating
-    std_dev_a = abs(float(rating_a_2026 - INITIAL_ELO)) / 400 * 10  # Scaled to 0-100
-    std_dev_b = abs(float(rating_b_2026 - INITIAL_ELO)) / 400 * 10
-    
-    # Ensure reasonable std dev range (3-10)
-    std_dev_a = max(3, min(10, std_dev_a))
-    std_dev_b = max(3, min(10, std_dev_b))
-    
-    # Run Monte Carlo simulation
-    import numpy as np
-    
-    team_a_scores = []
-    team_b_scores = []
-    team_a_wins = 0
-    
-    for _ in range(MC_SIMULATIONS):
-        # Sample scores from normal distribution
-        score_a = np.random.normal(base_score_a, std_dev_a)
-        score_b = np.random.normal(base_score_b, std_dev_b)
-        
-        # Clip to valid range
-        score_a = max(0, min(100, score_a))
-        score_b = max(0, min(100, score_b))
-        
-        team_a_scores.append(score_a)
-        team_b_scores.append(score_b)
-        
-        # Count wins for probability
-        if score_a > score_b:
-            team_a_wins += 1
-    
-    # Calculate results from simulations
-    team_a_win_prob = (team_a_wins / MC_SIMULATIONS) * 100
-    team_b_win_prob = 100 - team_a_win_prob
-    
-    return {
-        'team_a_score': round(np.mean(team_a_scores), 2),
-        'team_b_score': round(np.mean(team_b_scores), 2),
+        'team_a_score': round(team_a_score, 2),
+        'team_b_score': round(team_b_score, 2),
         'team_a_win_prob': round(team_a_win_prob, 2),
         'team_b_win_prob': round(team_b_win_prob, 2)
     }
