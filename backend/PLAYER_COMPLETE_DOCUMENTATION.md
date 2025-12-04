@@ -392,6 +392,7 @@ POST /api/ranking/
 **Hitting Metrics** (higher is better):
 - `avg` - Batting Average
 - `ops` - On-base Plus Slugging
+- `ops_plus` - On-base Plus Slugging Plus (advanced metric, scaled to 100 = league average)
 - `hr` - Home Runs
 - `rbi` - Runs Batted In
 - `r` - Runs Scored
@@ -401,6 +402,7 @@ POST /api/ranking/
 
 **Pitching Metrics**:
 - `era` - Earned Run Average (lower is better)
+- `era_plus` - ERA Plus (advanced metric, scaled to 100 = league average, higher is better)
 - `whip` - Walks + Hits per Innings Pitched (lower is better)
 - `so` - Strikeouts (higher is better)
 - `w` - Wins (higher is better)
@@ -567,8 +569,8 @@ curl -X POST http://localhost:8000/api/ranking/ \
 {
   "error": "Unknown hitter metric: invalid_metric",
   "available_metrics": {
-    "hitting": ["avg", "ops", "hr", "rbi", "r", "h", "obp", "slg"],
-    "pitching": ["era", "whip", "so", "w", "l", "bb"]
+    "hitting": ["avg", "ops", "ops_plus", "hr", "rbi", "r", "h", "obp", "slg"],
+    "pitching": ["era", "era_plus", "whip", "so", "w", "l", "bb"]
   }
 }
 ```
@@ -579,8 +581,8 @@ curl -X POST http://localhost:8000/api/ranking/ \
 {
   "error": "Both hitter_metric and pitcher_metric are required",
   "available_metrics": {
-    "hitting": ["avg", "ops", "hr", "rbi", "r", "h", "obp", "slg"],
-    "pitching": ["era", "whip", "so", "w", "l", "bb"]
+    "hitting": ["avg", "ops", "ops_plus", "hr", "rbi", "r", "h", "obp", "slg"],
+    "pitching": ["era", "era_plus", "whip", "so", "w", "l", "bb"]
   }
 }
 ```
@@ -1150,8 +1152,8 @@ Conclusion: Linear scalability, sub-second for MLB (30 teams)
 {
   "error": "Unknown hitter metric: invalid_metric",
   "available_metrics": {
-    "hitting": ["avg", "ops", "hr", "rbi", "r", "h", "obp", "slg"],
-    "pitching": ["era", "whip", "so", "w", "l", "bb"]
+    "hitting": ["avg", "ops", "ops_plus", "hr", "rbi", "r", "h", "obp", "slg"],
+    "pitching": ["era", "era_plus", "whip", "so", "w", "l", "bb"]
   }
 }
 ```

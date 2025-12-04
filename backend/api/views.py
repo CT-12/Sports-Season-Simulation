@@ -10,6 +10,12 @@ from rest_framework import status
 from .services.matchup import analyze_matchup
 from .services.rankings import predict_2026_rankings
 from .services.team_ranking import rank_teams_by_metrics, get_ranking_with_details
+from .services.simulation import (
+    parse_transactions,
+    run_simulation,
+    SimulationTransaction,
+)
+from .services.cache_manager import get_cache_info, get_base_state
 
 
 @api_view(['POST'])
@@ -189,8 +195,8 @@ def team_ranking(request):
             {
                 'error': 'Both hitter_metric and pitcher_metric are required',
                 'available_metrics': {
-                    'hitting': ['avg', 'ops', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
-                    'pitching': ['era', 'whip', 'so', 'w', 'l', 'bb']
+                    'hitting': ['avg', 'ops', 'ops_plus', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
+                    'pitching': ['era', 'era_plus', 'whip', 'so', 'w', 'l', 'bb']
                 }
             },
             status=status.HTTP_400_BAD_REQUEST
@@ -210,8 +216,8 @@ def team_ranking(request):
             {
                 'error': str(e),
                 'available_metrics': {
-                    'hitting': ['avg', 'ops', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
-                    'pitching': ['era', 'whip', 'so', 'w', 'l', 'bb']
+                    'hitting': ['avg', 'ops', 'ops_plus', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
+                    'pitching': ['era', 'era_plus', 'whip', 'so', 'w', 'l', 'bb']
                 }
             },
             status=status.HTTP_400_BAD_REQUEST
@@ -220,5 +226,173 @@ def team_ranking(request):
     except Exception as e:
         return Response(
             {'error': f'Failed to rank teams: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+def simulation_ranking(request):
+    """
+    POST /api/simulation/ranking/
+    
+    Test "What-If" scenarios by applying trades to a team roster.
+    
+    This endpoint is STATELESS - no data is persisted. The simulation applies
+    trades only to the current request and calculates rankings based on the
+    modified rosters.
+    
+    Uses "Load Once, Clone Many" pattern:
+    1. Fetch: Get cached base state (or load from DB if not cached)
+    2. Clone: Create in-memory copy of player rosters
+    3. Modify: Apply user's trade transactions
+    4. Calculate: Run ranking algorithm on modified data
+    
+    Request body:
+    {
+        "hitter_metric": "ops",
+        "pitcher_metric": "era",
+        "season": 2025,
+        "details": false,
+        "transactions": [
+            {
+                "player_name": "Shohei Ohtani",
+                "position": "DH",
+                "from_team": "Los Angeles Dodgers",
+                "to_team": "New York Yankees"
+            },
+            {
+                "player_name": "Juan Soto",
+                "position": "OF",
+                "from_team": "New York Mets",
+                "to_team": "Los Angeles Dodgers"
+            }
+        ]
+    }
+    
+    Response format (similar to /api/ranking/ but with simulation metadata):
+    {
+        "AL": [...],
+        "NL": [...],
+        "simulation": {
+            "season": 2025,
+            "hitter_metric": "ops",
+            "pitcher_metric": "era",
+            "transactions_applied": 2,
+            "transaction_messages": [
+                "Traded Shohei Ohtani from Los Angeles Dodgers to New York Yankees",
+                "Traded Juan Soto from New York Mets to Los Angeles Dodgers"
+            ],
+            "status": "success"
+        }
+    }
+    
+    Error responses:
+    - 400 Bad Request: Missing required fields, invalid metrics, player not found
+    - 500 Internal Server Error: Database or calculation errors
+    """
+    # Extract and validate required fields
+    hitter_metric = request.data.get('hitter_metric')
+    pitcher_metric = request.data.get('pitcher_metric')
+    season = request.data.get('season')
+    transactions_data = request.data.get('transactions', [])
+    details = request.data.get('details', False)
+    
+    # Validate basic fields
+    if not hitter_metric or not pitcher_metric:
+        return Response(
+            {
+                'error': 'Both hitter_metric and pitcher_metric are required',
+                'available_metrics': {
+                    'hitting': ['avg', 'ops', 'ops_plus', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
+                    'pitching': ['era', 'era_plus', 'whip', 'so', 'w', 'l', 'bb']
+                }
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if not isinstance(transactions_data, list):
+        return Response(
+            {'error': 'transactions must be a list of transaction objects'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if len(transactions_data) == 0:
+        return Response(
+            {'error': 'At least one transaction is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Parse transactions
+        transactions = parse_transactions(transactions_data)
+        
+        # Run simulation
+        result = run_simulation(
+            hitter_metric=hitter_metric,
+            pitcher_metric=pitcher_metric,
+            transactions=transactions,
+            season=season,
+            details=details
+        )
+        
+        return Response(result, status=status.HTTP_200_OK)
+    
+    except ValueError as e:
+        # Validation errors (invalid metrics, player not found, missing fields)
+        return Response(
+            {
+                'error': str(e),
+                'available_metrics': {
+                    'hitting': ['avg', 'ops', 'ops_plus', 'hr', 'rbi', 'r', 'h', 'obp', 'slg'],
+                    'pitching': ['era', 'era_plus', 'whip', 'so', 'w', 'l', 'bb']
+                }
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    except Exception as e:
+        # Database or calculation errors
+        return Response(
+            {'error': f'Simulation failed: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def cache_status(request):
+    """
+    GET /api/cache/status/?season=2025
+    
+    Get information about the current cache state for debugging/monitoring.
+    
+    Query parameters:
+    - season (int, optional): Season to check. Defaults to 2025.
+    
+    Response format:
+    {
+        "season": 2025,
+        "cache_key": "mlb_players_base_state_2025",
+        "is_cached": true,
+        "cached_teams": 30,
+        "cached_players": 1234,
+        "cache_ttl": 3600
+    }
+    """
+    season = request.query_params.get('season', 2025)
+    
+    try:
+        season = int(season)
+    except ValueError:
+        return Response(
+            {'error': 'season must be an integer'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        cache_info = get_cache_info(season)
+        return Response(cache_info, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get cache info: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

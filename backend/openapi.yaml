@@ -39,6 +39,10 @@ tags:
     description: Team rankings prediction for upcoming season
   - name: Team Ranking
     description: Rank MLB teams by hitter and pitcher metrics using Z-score normalization
+  - name: Simulations
+    description: What-If trade simulation operations (stateless, no database changes)
+  - name: Cache
+    description: Cache management and monitoring
 
 paths:
   /api/teams/:
@@ -270,6 +274,26 @@ paths:
                   value:
                     error: Failed to analyze matchup using Elo method. Please check team names and ensure required data exists. (Elo ratings must be calculated first using python manage.py calculate_elo)
 
+  /api/simulation/ranking/:
+    post:
+      tags:
+        - Simulations
+      summary: Simulate team rankings with trades
+      description: |
+        Test "What-If" scenarios by applying trades to team rosters.
+        
+        **Stateless Design**: No changes are persisted. Each request:
+        1. Fetches the base state from cache (or DB if not cached)
+        2. Clones the rosters in memory
+        3. Applies the specified trades
+        4. Calculates rankings for the modified state
+        5. Returns results without persisting
+        
+        **Performance**: Uses "Load Once, Clone Many" pattern for efficiency:
+        - Base state cached for 1 hour (configurable)
+        - Per-request: clone (~50ms) + modify (~10ms) + rank (~5ms)
+        - No DB queries per simulation (except on cache miss)
+      operationId: simulateRanking
   /api/team_ranking/:
     post:
       tags:
@@ -299,6 +323,241 @@ paths:
         content:
           application/json:
             schema:
+              $ref: '#/components/schemas/SimulationRequest'
+            examples:
+              single_trade:
+                summary: Single player trade
+                value:
+                  hitter_metric: ops
+                  pitcher_metric: era
+                  season: 2025
+                  transactions:
+                    - player_name: Shohei Ohtani
+                      position: DH
+                      from_team: Los Angeles Dodgers
+                      to_team: New York Yankees
+              multi_trade:
+                summary: Multiple player trades (complex deal)
+                value:
+                  hitter_metric: avg
+                  pitcher_metric: whip
+                  season: 2025
+                  details: true
+                  transactions:
+                    - player_name: Shohei Ohtani
+                      position: DH
+                      from_team: Los Angeles Dodgers
+                      to_team: New York Yankees
+                    - player_name: Juan Soto
+                      position: OF
+                      from_team: New York Mets
+                      to_team: Los Angeles Dodgers
+                    - player_name: Gerrit Cole
+                      position: P
+                      from_team: New York Yankees
+                      to_team: Boston Red Sox
+      responses:
+        '200':
+          description: Simulation successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationResponse'
+        '400':
+          description: Invalid input (metrics, player not found, missing fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                player_not_found:
+                  summary: Player not found in specified team
+                  value:
+                    error: "Player 'Nonexistent Player' not found in Los Angeles Dodgers"
+                missing_field:
+                  summary: Missing required transaction field
+                  value:
+                    error: "Transaction 0: Missing required fields: ['to_team']"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/cache/status/:
+    get:
+      tags:
+        - Cache
+      summary: Get cache status
+      description: |
+        Retrieve information about the cache state for debugging and monitoring.
+        
+        Useful for:
+        - Verifying cache is populated
+        - Monitoring cache hit rates
+        - Troubleshooting cache issues
+      operationId: getCacheStatus
+      parameters:
+        - name: season
+          in: query
+          description: Season year to check cache status for
+          required: false
+          schema:
+            type: integer
+            default: 2025
+            example: 2025
+      responses:
+        '200':
+          description: Cache status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheStatusResponse'
+              example:
+                season: 2025
+                cache_key: mlb_players_base_state_2025
+                is_cached: true
+                cached_teams: 30
+                cached_players: 1234
+                cache_ttl: 3600
+        '400':
+          description: Invalid season parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/simulation/ranking/:
+    post:
+      tags:
+        - Simulations
+      summary: Simulate team rankings with trades
+      description: |
+        Test "What-If" scenarios by applying trades to team rosters.
+        
+        **Stateless Design**: No changes are persisted. Each request:
+        1. Fetches the base state from cache (or DB if not cached)
+        2. Clones the rosters in memory
+        3. Applies the specified trades
+        4. Calculates rankings for the modified state
+        5. Returns results without persisting
+        
+        **Performance**: Uses "Load Once, Clone Many" pattern:
+        - Base state cached for 1 hour (configurable)
+        - Per-request: clone (~50ms) + modify (~10ms) + rank (~5ms)
+        - No DB queries per simulation (except on cache miss)
+      operationId: simulateRanking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulationRequest'
+            examples:
+              single_trade:
+                summary: Single player trade
+                value:
+                  hitter_metric: ops
+                  pitcher_metric: era
+                  season: 2025
+                  transactions:
+                    - player_name: Shohei Ohtani
+                      position: DH
+                      from_team: Los Angeles Dodgers
+                      to_team: New York Yankees
+              multi_trade:
+                summary: Multiple player trades
+                value:
+                  hitter_metric: avg
+                  pitcher_metric: whip
+                  season: 2025
+                  details: true
+                  transactions:
+                    - player_name: Shohei Ohtani
+                      position: DH
+                      from_team: Los Angeles Dodgers
+                      to_team: New York Yankees
+                    - player_name: Juan Soto
+                      position: OF
+                      from_team: New York Mets
+                      to_team: Los Angeles Dodgers
+      responses:
+        '200':
+          description: Simulation successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationResponse'
+        '400':
+          description: Invalid input (metrics, player not found, missing fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                player_not_found:
+                  summary: Player not found in specified team
+                  value:
+                    error: "Player 'Nonexistent Player' not found in Los Angeles Dodgers"
+                missing_field:
+                  summary: Missing required transaction field
+                  value:
+                    error: "Transaction 0: Missing required fields: ['to_team']"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/cache/status/:
+    get:
+      tags:
+        - Cache
+      summary: Get cache status
+      description: |
+        Retrieve information about the cache state for debugging and monitoring.
+        
+        Useful for:
+        - Verifying cache is populated
+        - Monitoring cache hit rates
+        - Troubleshooting cache issues
+      operationId: getCacheStatus
+      parameters:
+        - name: season
+          in: query
+          description: Season year to check cache status for
+          required: false
+          schema:
+            type: integer
+            default: 2025
+            example: 2025
+      responses:
+        '200':
+          description: Cache status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheStatusResponse'
+        '400':
+          description: Invalid season parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
               $ref: '#/components/schemas/RankingsRequest'
             examples:
               pythagorean:
@@ -745,6 +1004,355 @@ components:
               example: [era, whip, so, w, l, bb]
       required:
         - error
+
+    SimulationRequest:
+      type: object
+      description: Request to simulate team rankings with player trades
+      properties:
+        hitter_metric:
+          type: string
+          description: Metric to use for hitter rankings
+          enum: [avg, ops, hr, rbi, r, h, obp, slg]
+          example: ops
+        pitcher_metric:
+          type: string
+          description: Metric to use for pitcher rankings
+          enum: [era, whip, so, w, l, bb]
+          example: era
+        season:
+          type: integer
+          description: Season year (defaults to current year)
+          default: 2025
+          example: 2025
+        details:
+          type: boolean
+          description: Include detailed stat breakdowns in response
+          default: false
+        transactions:
+          type: array
+          minItems: 1
+          description: List of player trades to apply
+          items:
+            $ref: '#/components/schemas/Transaction'
+      required:
+        - hitter_metric
+        - pitcher_metric
+        - transactions
+
+    Transaction:
+      type: object
+      description: A single player trade (move player from one team to another)
+      properties:
+        player_name:
+          type: string
+          description: Player's full name (must match DB exactly)
+          example: Shohei Ohtani
+        position:
+          type: string
+          description: Player's position
+          enum: [P, C, 1B, 2B, 3B, SS, LF, CF, RF, OF, DH]
+          example: DH
+        from_team:
+          type: string
+          description: Current team (must match DB exactly)
+          example: Los Angeles Dodgers
+        to_team:
+          type: string
+          description: New team (must match DB exactly)
+          example: New York Yankees
+      required:
+        - player_name
+        - position
+        - from_team
+        - to_team
+
+    SimulationResponse:
+      type: object
+      description: Simulated rankings after applying trades
+      properties:
+        season:
+          type: integer
+          example: 2025
+        hitter_metric:
+          type: string
+          example: ops
+        pitcher_metric:
+          type: string
+          example: era
+        simulation_metadata:
+          $ref: '#/components/schemas/SimulationMetadata'
+        AL:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulatedTeamRanking'
+          description: American League teams ranked by combined metric score
+        NL:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulatedTeamRanking'
+          description: National League teams ranked by combined metric score
+
+    SimulationMetadata:
+      type: object
+      description: Metadata about the simulation execution
+      properties:
+        transactions_applied:
+          type: integer
+          description: Number of transactions successfully applied
+          example: 2
+        cache_hit:
+          type: boolean
+          description: Whether base state came from cache
+          example: true
+        execution_time_ms:
+          type: number
+          format: float
+          description: Total execution time in milliseconds
+          example: 67.3
+
+    SimulatedTeamRanking:
+      type: object
+      description: A team's ranking in the simulated scenario
+      properties:
+        rank:
+          type: integer
+          description: Rank within league (1-15 for AL/NL)
+          example: 1
+        team_name:
+          type: string
+          example: Los Angeles Dodgers
+        hitter_score:
+          type: number
+          format: float
+          description: Combined normalized hitter metric score
+          example: 8.45
+        pitcher_score:
+          type: number
+          format: float
+          description: Combined normalized pitcher metric score
+          example: 7.92
+        combined_score:
+          type: number
+          format: float
+          description: Sum of hitter and pitcher scores
+          example: 16.37
+        hitter_stats:
+          type: object
+          description: Aggregated hitter stats (only if details=true)
+          additionalProperties:
+            type: number
+        pitcher_stats:
+          type: object
+          description: Aggregated pitcher stats (only if details=true)
+          additionalProperties:
+            type: number
+
+    CacheStatusResponse:
+      type: object
+      description: Current state of the base state cache
+      properties:
+        season:
+          type: integer
+          description: Season being queried
+          example: 2025
+        cache_key:
+          type: string
+          description: Redis/cache key used for this season
+          example: mlb_players_base_state_2025
+        is_cached:
+          type: boolean
+          description: Whether base state is currently cached
+          example: true
+        cached_teams:
+          type: integer
+          description: Number of teams in cache
+          example: 30
+        cached_players:
+          type: integer
+          description: Total number of players in cache
+          example: 1234
+        cache_ttl:
+          type: integer
+          description: Cache time-to-live in seconds
+          example: 3600
+        cache_created_at:
+          type: string
+          format: date-time
+          description: When cache was created (ISO 8601)
+          example: '2025-03-20T15:30:45Z'
+
+    ErrorResponse:
+      type: object
+      description: Standard error response
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Invalid request
+
+    SimulationRequest:
+      type: object
+      required:
+        - hitter_metric
+        - pitcher_metric
+        - transactions
+      properties:
+        hitter_metric:
+          type: string
+          description: Hitting metric to use for ranking
+          enum:
+            - avg
+            - ops
+            - ops_plus
+            - hr
+            - rbi
+            - r
+            - h
+            - obp
+            - slg
+          example: ops
+        pitcher_metric:
+          type: string
+          description: Pitching metric to use for ranking
+          enum:
+            - era
+            - era_plus
+            - whip
+            - so
+            - w
+            - l
+            - bb
+          example: era
+        season:
+          type: integer
+          description: Season year (optional, defaults to latest season)
+          example: 2025
+        details:
+          type: boolean
+          description: Include detailed Z-score information
+          default: false
+          example: false
+        transactions:
+          type: array
+          description: List of player trades to apply
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Transaction'
+          example:
+            - player_name: Shohei Ohtani
+              position: DH
+              from_team: Los Angeles Dodgers
+              to_team: New York Yankees
+
+    Transaction:
+      type: object
+      required:
+        - player_name
+        - position
+        - from_team
+        - to_team
+      properties:
+        player_name:
+          type: string
+          description: Full name of the player being traded
+          example: Shohei Ohtani
+        position:
+          type: string
+          description: Player's position (informational, currently not used for filtering)
+          example: DH
+          enum:
+            - C
+            - "1B"
+            - "2B"
+            - "3B"
+            - SS
+            - OF
+            - DH
+            - P
+        from_team:
+          type: string
+          description: Current team name (player will be removed from this team)
+          example: Los Angeles Dodgers
+        to_team:
+          type: string
+          description: Destination team name (player will be added to this team)
+          example: New York Yankees
+
+    SimulationResponse:
+      type: object
+      description: Ranking results after applying trades
+      properties:
+        AL:
+          type: array
+          items:
+            $ref: '#/components/schemas/RankedTeam'
+          description: American League teams with new rankings
+        NL:
+          type: array
+          items:
+            $ref: '#/components/schemas/RankedTeam'
+          description: National League teams with new rankings
+        simulation:
+          $ref: '#/components/schemas/SimulationMetadata'
+
+    SimulationMetadata:
+      type: object
+      description: Metadata about the simulation execution
+      properties:
+        season:
+          type: integer
+          example: 2025
+        hitter_metric:
+          type: string
+          example: ops
+        pitcher_metric:
+          type: string
+          example: era
+        transactions_applied:
+          type: integer
+          description: Number of trades successfully applied
+          example: 2
+        transaction_messages:
+          type: array
+          description: Human-readable descriptions of each applied trade
+          items:
+            type: string
+          example:
+            - "Traded Shohei Ohtani from Los Angeles Dodgers to New York Yankees"
+            - "Traded Juan Soto from New York Mets to Los Angeles Dodgers"
+        status:
+          type: string
+          enum: [success, partial_failure, failure]
+          description: Overall simulation status
+          example: success
+
+    CacheStatusResponse:
+      type: object
+      description: Cache status information
+      properties:
+        season:
+          type: integer
+          example: 2025
+        cache_key:
+          type: string
+          description: Cache key used to store this data
+          example: mlb_players_base_state_2025
+        is_cached:
+          type: boolean
+          description: Whether the base state is currently cached
+          example: true
+        cached_teams:
+          type: integer
+          description: Number of teams in cache
+          example: 30
+        cached_players:
+          type: integer
+          description: Total number of players cached
+          example: 1234
+        cache_ttl:
+          type: integer
+          description: Time-to-live in seconds
+          example: 3600
 
   securitySchemes:
     {}
