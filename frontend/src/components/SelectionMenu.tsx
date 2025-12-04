@@ -57,14 +57,14 @@ const SelectionMenu: React.FC<SelectionMenuProps> = ({
     ];
 
     const hitterOptions: MenuOption[] = [
-        { label: 'OPS+', value: 'ops_plus' },
+        { label: 'OPS', value: 'ops' },
         { label: 'WAR', value: 'h_war' },
-        { label: 'wRC+', value: 'wrc_plus' },
+        { label: 'AVG', value: 'avg' },
     ];
 
     const pitcherOptions: MenuOption[] = [
-        { label: 'WAR', value: 'p_war' },
         { label: 'ERA', value: 'era' },
+        { label: 'WAR', value: 'p_war' },
         { label: 'WHIP', value: 'whip' },
     ];
 

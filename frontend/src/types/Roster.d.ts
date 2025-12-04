@@ -3,6 +3,7 @@ interface Player {
     name: string,
     position: string,
     rating: number,
+    displayValue?: number,  // 顯示用的原始值
 }
 
 interface RosterItem {

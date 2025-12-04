@@ -3,14 +3,24 @@ import appStyle from "./styles/app.module.css";
 import TeamSelect from "./components/TeamSelect.tsx";
 import Arena from "./components/Arena.tsx";
 import SelectionMenu from "./components/SelectionMenu.tsx";
+import SimulationResults from "./components/SimulationResults.tsx";
 import { useTeamManager } from "./hooks/useTeamManager.ts";
 import { computeWinProbability } from "./utils/ComputeTeamStat.ts";
 import { analyzeMatchup } from "./api/Matchup.ts";
+import { runSeasonSimulation, type TeamSeasonResult } from "./api/SeasonSimulation.ts";
 import UISlider from './components/UISlider.tsx';
 
 function App() {
     const [mode, setMode] = useState('Team');
     const [teamStat, setTeamStat] = useState('pythagorean');
+    
+    // 模擬結果狀態
+    const [isSimulating, setIsSimulating] = useState(false);
+    const [showResults, setShowResults] = useState(false);
+    const [simulationResults, setSimulationResults] = useState<{
+        NL: TeamSeasonResult[];
+        AL: TeamSeasonResult[];
+    } | null>(null);
     
     // Team 模式的勝率（從後端獲取）
     const [teamModeWinProb, setTeamModeWinProb] = useState<{
@@ -70,6 +80,33 @@ function App() {
     // 根據模式決定使用哪種勝率
     const finalTeamAWinProb = mode === 'Team' ? teamModeWinProb.teamAWinProb : playerModeTeamAProb;
     const finalTeamBWinProb = mode === 'Team' ? teamModeWinProb.teamBWinProb : playerModeTeamBProb;
+    
+    // 執行賽季模擬
+    const handleRunSimulation = async () => {
+        setIsSimulating(true);
+        
+        try {
+            const method = teamStat === 'pythagorean' ? 'Pythagorean' : 'Elo';
+            const results = await runSeasonSimulation(method);
+            
+            if (results) {
+                setSimulationResults(results);
+                setShowResults(true);
+            } else {
+                alert('模擬失敗，請稍後再試');
+            }
+        } catch (error) {
+            console.error('Simulation error:', error);
+            alert('模擬時發生錯誤');
+        } finally {
+            setIsSimulating(false);
+        }
+    };
+    
+    // 關閉結果視窗
+    const handleCloseResults = () => {
+        setShowResults(false);
+    };
 
     return (
         <div className={appStyle.app}>
@@ -103,6 +140,8 @@ function App() {
                     teams={teams}
                     onTeamsSelected={handleTeamSelect}
                     onResetRosters={resetRosters}
+                    onRunSimulation={handleRunSimulation}
+                    isSimulating={isSimulating}
                     mode={mode}
                 />
 
@@ -121,6 +160,15 @@ function App() {
                     teamStat={teamStat}
                 />
             </main>
+            
+            {/* 模擬結果視窗 */}
+            {showResults && simulationResults && (
+                <SimulationResults
+                    nlTeams={simulationResults.NL}
+                    alTeams={simulationResults.AL}
+                    onClose={handleCloseResults}
+                />
+            )}
         </div>
     );
 }
