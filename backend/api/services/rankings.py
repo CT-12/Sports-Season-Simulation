@@ -1,11 +1,14 @@
 """
 Team Rankings Service
 
-Predicts 2026 team rankings using Monte Carlo season simulation.
-Both Pythagorean and Elo methods simulate a full 162-game season.
+Predicts 2026 team rankings using Monte Carlo season simulation with realistic scheduling.
+Simulates a full season (approx 162 games) accounting for strength of schedule:
+- Division rivals: ~13 games
+- League rivals: ~6 games
+- Inter-league: ~3 games
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 from decimal import Decimal
 import numpy as np
 
@@ -17,41 +20,50 @@ from ..utils.season_prediction import (
 from ..utils.teams import fetch_all_teams
 
 
-# Team to League mapping
-TEAM_LEAGUE_MAP = {
-    # American League (AL)
-    "Baltimore Orioles": "AL",
-    "Boston Red Sox": "AL",
-    "New York Yankees": "AL",
-    "Tampa Bay Rays": "AL",
-    "Toronto Blue Jays": "AL",
-    "Chicago White Sox": "AL",
-    "Cleveland Guardians": "AL",
-    "Detroit Tigers": "AL",
-    "Kansas City Royals": "AL",
-    "Minnesota Twins": "AL",
-    "Houston Astros": "AL",
-    "Los Angeles Angels": "AL",
-    "Athletics": "AL",  # 資料庫中是 "Athletics" 而不是 "Oakland Athletics"
-    "Seattle Mariners": "AL",
-    "Texas Rangers": "AL",
+# Team Configuration with League and Division
+# Structure: {TeamName: (League, Division)}
+TEAM_STRUCTURE = {
+    # AL East
+    "Baltimore Orioles": ("AL", "East"),
+    "Boston Red Sox": ("AL", "East"),
+    "New York Yankees": ("AL", "East"),
+    "Tampa Bay Rays": ("AL", "East"),
+    "Toronto Blue Jays": ("AL", "East"),
     
-    # National League (NL)
-    "Atlanta Braves": "NL",
-    "Miami Marlins": "NL",
-    "New York Mets": "NL",
-    "Philadelphia Phillies": "NL",
-    "Washington Nationals": "NL",
-    "Chicago Cubs": "NL",
-    "Cincinnati Reds": "NL",
-    "Milwaukee Brewers": "NL",
-    "Pittsburgh Pirates": "NL",
-    "St. Louis Cardinals": "NL",
-    "Arizona Diamondbacks": "NL",
-    "Colorado Rockies": "NL",
-    "Los Angeles Dodgers": "NL",
-    "San Diego Padres": "NL",
-    "San Francisco Giants": "NL",
+    # AL Central
+    "Chicago White Sox": ("AL", "Central"),
+    "Cleveland Guardians": ("AL", "Central"),
+    "Detroit Tigers": ("AL", "Central"),
+    "Kansas City Royals": ("AL", "Central"),
+    "Minnesota Twins": ("AL", "Central"),
+    
+    # AL West
+    "Houston Astros": ("AL", "West"),
+    "Los Angeles Angels": ("AL", "West"),
+    "Athletics": ("AL", "West"),
+    "Seattle Mariners": ("AL", "West"),
+    "Texas Rangers": ("AL", "West"),
+    
+    # NL East
+    "Atlanta Braves": ("NL", "East"),
+    "Miami Marlins": ("NL", "East"),
+    "New York Mets": ("NL", "East"),
+    "Philadelphia Phillies": ("NL", "East"),
+    "Washington Nationals": ("NL", "East"),
+    
+    # NL Central
+    "Chicago Cubs": ("NL", "Central"),
+    "Cincinnati Reds": ("NL", "Central"),
+    "Milwaukee Brewers": ("NL", "Central"),
+    "Pittsburgh Pirates": ("NL", "Central"),
+    "St. Louis Cardinals": ("NL", "Central"),
+    
+    # NL West
+    "Arizona Diamondbacks": ("NL", "West"),
+    "Colorado Rockies": ("NL", "West"),
+    "Los Angeles Dodgers": ("NL", "West"),
+    "San Diego Padres": ("NL", "West"),
+    "San Francisco Giants": ("NL", "West"),
 }
 
 
@@ -59,116 +71,105 @@ def predict_2026_rankings(method: str = "Pythagorean") -> Dict[str, List[str]]:
     """
     Predict 2026 team rankings using Monte Carlo season simulation.
     
-    Simulates a full 162-game season using specified method, then ranks
-    teams by simulated wins.
+    Simulates a full season with realistic schedule weighting.
     
     Args:
         method (str): "Pythagorean" or "Elo"
     
     Returns:
         dict: {
-            "NL": ["Team 1", "Team 2", ...],  # Sorted by simulated wins
-            "AL": ["Team 1", "Team 2", ...]   # Sorted by simulated wins
+            "NL": ["Team 1", "Team 2", ...],
+            "AL": ["Team 1", "Team 2", ...]
         }
-    
-    Example:
-        >>> rankings = predict_2026_rankings("Elo")
-        >>> print(rankings["AL"][0])  # Best AL team
-        'New York Yankees'
     """
     BASE_SEASON = 2025
-    SIMULATIONS = 1000  # Monte Carlo simulations
-    GAMES_PER_SEASON = 162
+    SIMULATIONS = 1000
     
     # Get all teams
-    teams = fetch_all_teams(BASE_SEASON)
-    if not teams:
+    teams_data = fetch_all_teams(BASE_SEASON)
+    if not teams_data:
         return {"NL": [], "AL": []}
     
-    # Get team win probabilities for each method
-    if method == "Pythagorean":
-        team_win_rates = _get_pythagorean_win_rates(teams, BASE_SEASON)
-    else:  # Elo
-        team_win_rates = _get_elo_win_rates(teams, BASE_SEASON)
+    # Map team names to IDs and validate structure
+    valid_teams = []
+    for team in teams_data:
+        if team['name'] in TEAM_STRUCTURE:
+            valid_teams.append(team)
     
-    # Run Monte Carlo season simulation
-    team_avg_wins = _simulate_season_monte_carlo(
-        team_win_rates, 
-        GAMES_PER_SEASON, 
-        SIMULATIONS
+    # 1. Get Team Ratings (Win Probability vs Average)
+    if method == "Pythagorean":
+        team_ratings = _get_pythagorean_ratings(valid_teams, BASE_SEASON)
+    else:  # Elo
+        team_ratings = _get_elo_ratings(valid_teams, BASE_SEASON)
+    
+    # 2. Generate Schedule (List of Matchups)
+    schedule = _generate_balanced_schedule(list(team_ratings.keys()))
+    
+    # 3. Run Monte Carlo Simulation
+    team_avg_wins = _simulate_schedule_monte_carlo(
+        team_ratings,
+        schedule,
+        SIMULATIONS,
+        method
     )
     
-    # Separate by league and sort by wins
+    # 4. Sort and Format Results
     nl_teams = []
     al_teams = []
     
     for team_name, avg_wins in team_avg_wins.items():
-        league = TEAM_LEAGUE_MAP.get(team_name)
+        league = TEAM_STRUCTURE.get(team_name, ("Unknown",))[0]
         if league == "NL":
             nl_teams.append((team_name, avg_wins))
         elif league == "AL":
             al_teams.append((team_name, avg_wins))
     
-    # Sort by wins (descending - most wins first)
+    # Sort by wins (descending)
     nl_teams.sort(key=lambda x: x[1], reverse=True)
     al_teams.sort(key=lambda x: x[1], reverse=True)
     
-    # Extract team names only
     return {
         "NL": [team[0] for team in nl_teams],
         "AL": [team[0] for team in al_teams]
     }
 
 
-def _get_pythagorean_win_rates(teams: List[Dict], season: int) -> Dict[str, float]:
-    """
-    Get 2026 predicted win rates using Pythagorean method.
-    
-    Returns:
-        dict: {team_name: predicted_win_rate}
-    """
+def _get_pythagorean_ratings(teams: List[Dict], season: int) -> Dict[str, float]:
+    """Get Pythagorean win rates (vs average) for all teams."""
     REGRESSION_WEIGHT = 0.7
-    team_win_rates = {}
+    ratings = {}
     
     for team in teams:
         team_id = str(team['id'])
         team_name = team['name']
         
-        # Get 2025 Pythagorean rating
         rating = calculate_team_pythagorean_rating(team_id, season)
         if not rating or not rating.get('total_runs_scored'):
+            ratings[team_name] = 0.5  # Fallback
             continue
         
-        # Predict 2026 with regression to mean
         prediction = predict_next_season_win_rate(
             rating['total_runs_scored'],
             rating['total_runs_allowed'],
             weight=REGRESSION_WEIGHT
         )
-        
-        team_win_rates[team_name] = prediction['next_year_projected_win_rate']
+        ratings[team_name] = prediction['next_year_projected_win_rate']
     
-    return team_win_rates
+    return ratings
 
 
-def _get_elo_win_rates(teams: List[Dict], season: int) -> Dict[str, float]:
-    """
-    Get 2026 predicted win rates using Elo method.
-    
-    Returns:
-        dict: {team_name: predicted_win_rate}
-    """
+def _get_elo_ratings(teams: List[Dict], season: int) -> Dict[str, float]:
+    """Get Elo ratings (regressed to 2026) for all teams."""
     INITIAL_ELO = Decimal('1500')
     REGRESSION_WEIGHT = Decimal('0.75')
-    team_elo_ratings = {}
+    ratings = {}
     
-    # First, get all Elo ratings
+    from django.db import connection
+    
     for team in teams:
         team_id = team['id']
         team_name = team['name']
         
-        # Get latest 2025 Elo rating
-        from django.db import connection
         with connection.cursor() as cursor:
             cursor.execute("""
                 SELECT rating FROM team_elo_history
@@ -177,61 +178,142 @@ def _get_elo_win_rates(teams: List[Dict], season: int) -> Dict[str, float]:
             """, [team_id, season])
             row = cursor.fetchone()
             
-            if not row:
-                continue
+            if row:
+                rating_2025 = Decimal(str(row[0]))
+                rating_2026 = (rating_2025 * REGRESSION_WEIGHT) + (INITIAL_ELO * (Decimal('1') - REGRESSION_WEIGHT))
+                ratings[team_name] = float(rating_2026)
+            else:
+                ratings[team_name] = 1500.0  # Fallback
+                
+    return ratings
+
+
+def _generate_balanced_schedule(team_names: List[str]) -> List[Tuple[str, str]]:
+    """
+    Generate a balanced schedule of matchups.
+    Returns a list of (TeamA, TeamB) tuples representing all games in a season.
+    """
+    schedule = []
+    
+    # Games per opponent type
+    GAMES_DIVISION = 13
+    GAMES_LEAGUE = 6
+    GAMES_INTERLEAGUE = 3
+    
+    for i, team_a in enumerate(team_names):
+        for j, team_b in enumerate(team_names):
+            if i >= j: continue  # Avoid duplicates and self-play
             
-            rating_2025 = Decimal(str(row[0]))
-        
-        # Apply season regression for 2026
-        rating_2026 = (rating_2025 * REGRESSION_WEIGHT) + (INITIAL_ELO * (Decimal('1') - REGRESSION_WEIGHT))
-        team_elo_ratings[team_name] = float(rating_2026)
-    
-    # Convert Elo ratings to win rates
-    # Average opponent has Elo = 1500
-    team_win_rates = {}
-    for team_name, elo in team_elo_ratings.items():
-        # Win probability against average team (1500)
-        # P(win) = 1 / (1 + 10^((1500 - elo) / 400))
-        win_rate = 1 / (1 + 10 ** ((1500 - elo) / 400))
-        team_win_rates[team_name] = win_rate
-    
-    return team_win_rates
+            info_a = TEAM_STRUCTURE.get(team_a)
+            info_b = TEAM_STRUCTURE.get(team_b)
+            
+            if not info_a or not info_b:
+                continue
+                
+            league_a, div_a = info_a
+            league_b, div_b = info_b
+            
+            num_games = 0
+            
+            if league_a == league_b:
+                if div_a == div_b:
+                    num_games = GAMES_DIVISION
+                else:
+                    num_games = GAMES_LEAGUE
+            else:
+                num_games = GAMES_INTERLEAGUE
+            
+            # Add matchups
+            for _ in range(num_games):
+                schedule.append((team_a, team_b))
+                
+    return schedule
 
 
-def _simulate_season_monte_carlo(
-    team_win_rates: Dict[str, float],
-    games_per_season: int,
-    simulations: int
+def _simulate_schedule_monte_carlo(
+    team_ratings: Dict[str, float],
+    schedule: List[Tuple[str, str]],
+    simulations: int,
+    method: str
 ) -> Dict[str, float]:
     """
-    Simulate full season using Monte Carlo method.
-    
-    Args:
-        team_win_rates: Dictionary of {team_name: win_rate}
-        games_per_season: Number of games per season (162)
-        simulations: Number of Monte Carlo simulations
-    
-    Returns:
-        dict: {team_name: average_wins_across_simulations}
+    Simulate the schedule N times using vectorized operations.
     """
-    team_names = list(team_win_rates.keys())
-    team_total_wins = {name: 0.0 for name in team_names}
+    team_names = list(team_ratings.keys())
+    team_indices = {name: i for i, name in enumerate(team_names)}
+    num_teams = len(team_names)
+    num_games = len(schedule)
     
-    # Run simulations
-    for _ in range(simulations):
-        # Simulate one season for each team
-        for team_name in team_names:
-            win_rate = team_win_rates[team_name]
+    # 1. Prepare Matchup Probabilities Vector
+    # probs[i] = Probability that Team A (schedule[i][0]) beats Team B (schedule[i][1])
+    probs = np.zeros(num_games)
+    
+    # Map schedule to indices for fast lookup later
+    game_indices_a = np.zeros(num_games, dtype=int)
+    game_indices_b = np.zeros(num_games, dtype=int)
+    
+    for i, (name_a, name_b) in enumerate(schedule):
+        rating_a = team_ratings[name_a]
+        rating_b = team_ratings[name_b]
+        
+        game_indices_a[i] = team_indices[name_a]
+        game_indices_b[i] = team_indices[name_b]
+        
+        if method == "Pythagorean":
+            # Log5 Formula
+            # Pa = rating_a, Pb = rating_b (both are win rates vs avg)
+            # P(A>B) = (Pa - PaPb) / (Pa + Pb - 2PaPb)
+            pa = rating_a
+            pb = rating_b
+            # Avoid division by zero
+            denom = pa + pb - 2 * pa * pb
+            if denom == 0:
+                prob = 0.5
+            else:
+                prob = (pa - pa * pb) / denom
+        else:
+            # Elo Formula
+            # P(A>B) = 1 / (1 + 10^((Rb - Ra) / 400))
+            prob = 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
             
-            # Simulate games using binomial distribution
-            # Each game is a Bernoulli trial with probability win_rate
-            wins = np.random.binomial(games_per_season, win_rate)
-            team_total_wins[team_name] += wins
+        probs[i] = prob
+        
+    # 2. Run Vectorized Simulation
+    # Generate random outcomes for all games in all simulations
+    # Shape: (simulations, num_games)
+    random_outcomes = np.random.random((simulations, num_games))
     
-    # Calculate average wins
-    team_avg_wins = {
-        name: total_wins / simulations 
-        for name, total_wins in team_total_wins.items()
-    }
+    # Boolean matrix: True if Team A wins
+    wins_a = random_outcomes < probs
     
-    return team_avg_wins
+    # 3. Aggregate Wins
+    total_wins = np.zeros(num_teams)
+    
+    # This part is tricky to fully vectorize without a loop over teams or games
+    # But since num_teams is small (30), we can loop over teams
+    # Or use np.add.at if we flatten, but loop over teams is readable and fast enough
+    
+    # Sum wins for Team A positions
+    for i in range(num_games):
+        idx_a = game_indices_a[i]
+        idx_b = game_indices_b[i]
+        
+        # wins_a[:, i] is a column of wins for this game across all sims
+        # Summing gives total wins for this game across all sims
+        game_wins_a = np.sum(wins_a[:, i])
+        game_wins_b = simulations - game_wins_a
+        
+        total_wins[idx_a] += game_wins_a
+        total_wins[idx_b] += game_wins_b
+        
+    # 4. Calculate Average Wins
+    # Normalize to 162 games if schedule length differs
+    avg_wins = total_wins / simulations
+    
+    if num_games > 0:
+        # Calculate games per team in schedule to normalize accurately
+        # But simple scaling is usually fine: (AvgWins / GamesPlayed) * 162
+        # Let's just return the raw simulated average, as our schedule is approx 162
+        pass
+        
+    return {name: avg_wins[i] for i, name in enumerate(team_names)}
