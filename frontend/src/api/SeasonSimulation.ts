@@ -2,8 +2,6 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export interface TeamSeasonResult {
   team: string;
-  wins: number;
-  losses: number;
   rank: number;
   logo?: string;
 }
@@ -41,44 +39,19 @@ export async function runSeasonSimulation(method: string = 'Pythagorean'): Promi
     console.log('[SeasonSimulation] Received data:', data);
     
     // 後端返回的格式: { "NL": ["team1", "team2", ...], "AL": [...] }
-    // 後端已經根據預測勝率排序，排名越前的球隊預期勝率越高
+    // 後端已經根據模擬結果排序，直接使用排名
     
-    // 為每個球隊計算合理的勝場數
-    // 第一名約 100 勝，最後一名約 60 勝
-    const calculateWins = (rank: number, totalTeams: number): number => {
-      // 使用非線性分布，讓前幾名差距較小，後面差距較大
-      const maxWins = 102;
-      const minWins = 58;
-      const range = maxWins - minWins;
-      
-      // 使用二次函數分布
-      const normalizedRank = (rank - 1) / (totalTeams - 1); // 0 to 1
-      const winsRatio = 1 - Math.pow(normalizedRank, 1.3); // 非線性
-      
-      return Math.round(minWins + range * winsRatio);
-    };
+    const nlTeams: TeamSeasonResult[] = (data.NL || []).map((teamName: string, index: number) => ({
+      team: teamName,
+      rank: index + 1,
+      logo: getTeamLogo(teamName)
+    }));
     
-    const nlTeams: TeamSeasonResult[] = (data.NL || []).map((teamName: string, index: number) => {
-      const wins = calculateWins(index + 1, data.NL.length);
-      return {
-        team: teamName,
-        wins: wins,
-        losses: 162 - wins,
-        rank: index + 1,
-        logo: getTeamLogo(teamName)
-      };
-    });
-    
-    const alTeams: TeamSeasonResult[] = (data.AL || []).map((teamName: string, index: number) => {
-      const wins = calculateWins(index + 1, data.AL.length);
-      return {
-        team: teamName,
-        wins: wins,
-        losses: 162 - wins,
-        rank: index + 1,
-        logo: getTeamLogo(teamName)
-      };
-    });
+    const alTeams: TeamSeasonResult[] = (data.AL || []).map((teamName: string, index: number) => ({
+      team: teamName,
+      rank: index + 1,
+      logo: getTeamLogo(teamName)
+    }));
     
     return { NL: nlTeams, AL: alTeams };
     

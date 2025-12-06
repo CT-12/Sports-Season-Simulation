@@ -18,7 +18,7 @@
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   border-radius: 20px;
   width: 90%;
-  max-width: 1200px;
+  max-width: 1000px;
   max-height: 90vh;
   overflow: hidden;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
@@ -150,48 +150,49 @@
 
 /* 特定列寬度 */
 .rankCol {
-  width: 60px;
+  width: 80px;
   text-align: center;
+}
+
+.rankBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #ffd43b 0%, #ffb700 100%);
+  color: #1a1a2e;
   font-weight: bold;
-  color: #ffd43b;
+  font-size: 1.1rem;
+  border-radius: 50%;
+  box-shadow: 0 4px 8px rgba(255, 212, 59, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.row:hover .rankBadge {
+  transform: scale(1.1);
 }
 
 .logoCol {
-  width: 50px;
+  width: 60px;
   text-align: center;
 }
 
 .logo {
-  width: 35px;
-  height: 35px;
+  width: 40px;
+  height: 40px;
   object-fit: contain;
+  transition: transform 0.2s ease;
+}
+
+.row:hover .logo {
+  transform: scale(1.15);
 }
 
 .teamCol {
-  min-width: 180px;
   font-weight: 500;
-}
-
-.winsCol,
-.lossesCol {
-  width: 60px;
-  text-align: center;
-  font-weight: 600;
-}
-
-.winsCol {
-  color: #51cf66;
-}
-
-.lossesCol {
-  color: #ff6b6b;
-}
-
-.pctCol {
-  width: 80px;
-  text-align: center;
-  font-family: 'Courier New', monospace;
-  color: #94d82d;
+  font-size: 1.05rem;
+  padding-left: 16px;
 }
 
 /* 頁尾 */
@@ -210,17 +211,36 @@
 }
 
 /* 前三名高亮 */
-.table tbody tr:nth-child(1) .rankCol {
-  color: #ffd700;
-  font-size: 1.1rem;
+.table tbody tr:nth-child(1) .rankBadge {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5);
+  font-size: 1.2rem;
+  animation: pulse 2s ease-in-out infinite;
 }
 
-.table tbody tr:nth-child(2) .rankCol {
-  color: #c0c0c0;
-  font-size: 1.05rem;
+.table tbody tr:nth-child(2) .rankBadge {
+  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+  box-shadow: 0 4px 12px rgba(192, 192, 192, 0.5);
+  font-size: 1.15rem;
 }
 
-.table tbody tr:nth-child(3) .rankCol {
-  color: #cd7f32;
-  font-size: 1.05rem;
+.table tbody tr:nth-child(3) .rankBadge {
+  background: linear-gradient(135deg, #cd7f32 0%, #e29b5f 100%);
+  box-shadow: 0 4px 12px rgba(205, 127, 50, 0.5);
+  font-size: 1.15rem;
+}
+
+/* 第四名以後使用預設樣式 */
+.table tbody tr:nth-child(n+4) .rankBadge {
+  background: linear-gradient(135deg, #4a5568 0%, #5a6577 100%);
+  box-shadow: 0 4px 8px rgba(74, 85, 104, 0.3);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
