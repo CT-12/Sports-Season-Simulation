@@ -33,6 +33,7 @@ TEAM_LEAGUE_MAP = {
     "Houston Astros": "AL",
     "Los Angeles Angels": "AL",
     "Oakland Athletics": "AL",
+    "Athletics": "AL",
     "Seattle Mariners": "AL",
     "Texas Rangers": "AL",
     
