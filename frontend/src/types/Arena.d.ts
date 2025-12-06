@@ -15,4 +15,5 @@ interface ArenaProps {
     pitcherStat: string;
     teams?: Team[];
     teamStat?: string;
+    setTransactions: Dispatch<SetStateAction<Transaction[]>>;
 }
