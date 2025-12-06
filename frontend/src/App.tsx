@@ -4,6 +4,7 @@ import TeamSelect from "./components/TeamSelect.tsx";
 import Arena from "./components/Arena.tsx";
 import SelectionMenu from "./components/SelectionMenu.tsx";
 import SimulationResults from "./components/SimulationResults.tsx";
+import TransactionPanel from "./components/TransactionPanel.tsx";
 import { useTeamManager } from "./hooks/useTeamManager.ts";
 import { computeWinProbability } from "./utils/ComputeTeamStat.ts";
 import { analyzeMatchup } from "./api/Matchup.ts";
@@ -166,6 +167,8 @@ function App() {
 					teamStat={teamStat}
 					setTransactions={setTransactions}
 				/>
+				
+				<TransactionPanel transactions={transactions} />
 			</main>
 			
 			{/* 模擬結果視窗 */}

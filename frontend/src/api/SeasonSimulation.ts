@@ -1,5 +1,3 @@
-import {getUniqueTransactions} from "../utils/TransactionUtils"
-
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export interface TeamSeasonResult {
@@ -76,14 +74,13 @@ export async function runPlayerModeSeasonSimulation(hitterMetric: string, pitche
     let payload = {};
 
     if (transactions.length) {
-      const uniqueTransactions = getUniqueTransactions(transactions);
 
       url = `${API_BASE}/simulation/ranking/`;
       payload = {
           hitter_metric: hitterMetric,
           pitcher_metric: pitcherMetric,
           season: "2025",
-          transactions: uniqueTransactions
+          transactions: transactions
       };
 
     } else {

@@ -1,0 +1,83 @@
+.transactionPanel {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 800px;
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    z-index: 1000;
+    transition: max-height 0.3s ease-in-out;
+}
+
+.collapsed {
+    max-height: 50px; /* Height for just the header */
+    padding-top: 5px;
+    padding-bottom: 5px;
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+}
+
+.collapsed .header {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+
+.transactionPanel h2 {
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 1.2rem;
+}
+
+.toggleButton {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.toggleButton:hover {
+    background-color: #0056b3;
+}
+
+
+.transactionPanel ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.transactionItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.transactionItem:last-child {
+    border-bottom: none;
+}
+
+.teams {
+    font-weight: bold;
+}
