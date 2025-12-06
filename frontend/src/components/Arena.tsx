@@ -5,7 +5,7 @@ import TeamPanel from "./TeamPanel";
 // Utils
 import { computeTeamRating } from "../utils/ComputeTeamStat";
 
-function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, movePlayer, mode, hitterStat, pitcherStat, teams, teamStat }: ArenaProps) {
+function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, movePlayer, mode, hitterStat, pitcherStat, teams, teamStat, setTransactions }: ArenaProps) {
     // 加在「放置的目標區」上的監聽器。
     // 移動到「目標區域」的上方時
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { 
@@ -37,6 +37,15 @@ function Arena({ teamA, teamB, rosterA, rosterB, teamAWinProb, teamBWinProb, mov
         }
         // remove from old parent and append to new
         movePlayer(p, sourceTeam, targetTeam);
+
+        // Log transaction
+        const transaction = {
+            player_name: p.name,
+            position: p.position,
+            from_team: sourceTeam,
+            to_team: targetTeam
+        }
+        setTransactions((prev: Transaction[]) => [...prev, transaction]);
     }
 
     return (
